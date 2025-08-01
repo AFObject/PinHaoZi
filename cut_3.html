@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手写笔记图像切割工具（带竖直分割）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        #app {
+            min-height: 100vh;
+        }
+        canvas {
+            cursor: crosshair;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .download-button {
+            transition: all 0.3s ease;
+        }
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+        }
+        .loading-overlay {
+            background: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center p-4">
+    <div id="app" class="bg-white rounded-lg shadow-xl p-8 max-w-4xl w-full flex flex-col gap-6">
+        <h1 class="text-3xl font-bold text-gray-800 text-center">手写笔记图像切割工具（带竖直分割）</h1>
+        
+        <!-- 文件上传和控制面板 -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-gray-50 rounded-md">
+            <label class="block text-sm font-medium text-gray-700">
+                选择图片：
+                <input type="file" id="imageLoader" class="mt-1 block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-violet-50 file:text-violet-700
+                    hover:file:bg-violet-100" />
+            </label>
+            <div class="flex items-center gap-4">
+                <label class="flex flex-col text-sm font-medium text-gray-700">
+                    横线数量：
+                    <input type="number" id="lineCount" value="25" min="2" max="100" class="mt-1 w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                </label>
+                <label class="flex flex-col text-sm font-medium text-gray-700">
+                    垂直平移 (px)：
+                    <input type="number" id="verticalOffsetInput" value="0" class="mt-1 w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                </label>
+                <!-- 新增的自动分割按钮 -->
+                <button id="autoSegmentBtn" class="download-button bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors">自动分割</button>
+                <button id="downloadBtn" class="download-button bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-full transition-colors">下载所有图片</button>
+            </div>
+        </div>
+
+        <!-- Canvas and Loading Overlay -->
+        <div class="relative w-full">
+            <canvas id="imageCanvas" class="w-full h-auto rounded-lg bg-gray-200"></canvas>
+            <div id="loadingOverlay" class="hidden absolute inset-0 flex items-center justify-center loading-overlay rounded-lg">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="w-12 h-12 border-4 border-violet-500 border-dashed rounded-full animate-spin"></div>
+                    <p class="text-gray-800 font-semibold" id="loadingMessage">正在生成 ZIP 文件...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="statusMessage" class="text-center text-sm text-gray-500 h-6">请载入图片并拖动红色边界线，或在行内点击插入竖直分割线</div>
+        
+    </div>
+
+    <script>
+        // 获取 HTML 元素
+        const imageLoader = document.getElementById('imageLoader');
+        const imageCanvas = document.getElementById('imageCanvas');
+        const ctx = imageCanvas.getContext('2d');
+        const lineCountInput = document.getElementById('lineCount');
+        const verticalOffsetInput = document.getElementById('verticalOffsetInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const autoSegmentBtn = document.getElementById('autoSegmentBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingMessage = document.getElementById('loadingMessage');
+
+        let originalImage = new Image();
+        let imageLoaded = false;
+        let scale = 1; // 图像在画布上的缩放比例
+        let topBoundaryY = 0; // 上边界线的 Y 坐标 (在原始图像尺寸上的比例)
+        let bottomBoundaryY = 1; // 下边界线的 Y 坐标 (在原始图像尺寸上的比例)
+        let verticalOffset = 0; // 垂直平移的像素值
+        let isDraggingTopBoundary = false;
+        let isDraggingBottomBoundary = false;
+        // 存储每一行的竖直分割线，以行的索引为键
+        let verticalSplitLines = [];
+
+        // 监听文件加载事件
+        imageLoader.addEventListener('change', handleImage, false);
+        lineCountInput.addEventListener('input', draw);
+        verticalOffsetInput.addEventListener('input', function(e) {
+            verticalOffset = parseInt(e.target.value, 10) || 0;
+            draw();
+        });
+        downloadBtn.addEventListener('click', handleDownload);
+        autoSegmentBtn.addEventListener('click', handleAutoSegment);
+
+        function handleImage(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                originalImage.onload = function() {
+                    imageLoaded = true;
+                    const containerWidth = imageCanvas.parentElement.clientWidth;
+                    scale = containerWidth / originalImage.width;
+                    imageCanvas.width = originalImage.width;
+                    imageCanvas.height = originalImage.height;
+
+                    imageCanvas.style.width = containerWidth + 'px';
+                    imageCanvas.style.height = (originalImage.height * scale) + 'px';
+
+                    // 初始化边界和分割线
+                    topBoundaryY = 0;
+                    bottomBoundaryY = 1;
+                    verticalOffset = 0;
+                    verticalOffsetInput.value = 0;
+                    // 根据行数重新初始化分割线数组
+                    updateVerticalSplitLines();
+
+                    draw();
+                    statusMessage.textContent = '图片载入成功。拖动红色边界线，或在行内点击插入/删除竖直分割线。';
+                };
+                originalImage.src = event.target.result;
+            };
+            if (e.target.files[0]) {
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        }
+
+        // 绘制所有内容的主函数
+        function draw() {
+            if (!imageLoaded) return;
+
+            // 清空画布并绘制图像
+            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            ctx.drawImage(originalImage, 0, 0);
+
+            // 计算未平移的边界坐标
+            const unshiftedTopY = topBoundaryY * imageCanvas.height;
+            const unshiftedBottomY = bottomBoundaryY * imageCanvas.height;
+            const lineCount = parseInt(lineCountInput.value, 10);
+            const lineSpacing = (unshiftedBottomY - unshiftedTopY) / (lineCount + 1);
+
+            // 计算平移后的边界坐标，并确保它们在画布内
+            const shiftedTopY = Math.max(0, Math.min(imageCanvas.height, unshiftedTopY + verticalOffset));
+            const shiftedBottomY = Math.max(0, Math.min(imageCanvas.height, unshiftedBottomY + verticalOffset));
+
+            // 绘制上下边界线 (红色)
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, shiftedTopY);
+            ctx.lineTo(imageCanvas.width, shiftedTopY);
+            ctx.moveTo(0, shiftedBottomY);
+            ctx.lineTo(imageCanvas.width, shiftedBottomY);
+            ctx.stroke();
+
+            // 绘制中间的横线 (浅蓝色)
+            ctx.strokeStyle = 'rgba(0, 150, 255, 0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= lineCount; i++) {
+                const lineY = unshiftedTopY + i * lineSpacing + verticalOffset;
+                // 确保中间的线也在画布内
+                if (lineY >= 0 && lineY <= imageCanvas.height) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, lineY);
+                    ctx.lineTo(imageCanvas.width, lineY);
+                    ctx.stroke();
+                }
+            }
+
+            // 绘制竖直分割线 (紫色)
+            ctx.strokeStyle = 'rgba(128, 0, 128, 0.8)';
+            ctx.lineWidth = 2;
+            verticalSplitLines.forEach((splits, lineIndex) => {
+                const lineTopY = unshiftedTopY + lineIndex * lineSpacing;
+                const lineBottomY = lineTopY + lineSpacing;
+                
+                const shiftedLineTopY = Math.max(0, Math.min(imageCanvas.height, lineTopY + verticalOffset));
+                const shiftedLineBottomY = Math.max(0, Math.min(imageCanvas.height, lineBottomY + verticalOffset));
+
+                splits.forEach(x => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, shiftedLineTopY);
+                    ctx.lineTo(x, shiftedLineBottomY);
+                    ctx.stroke();
+                });
+            });
+        }
+
+        // 获取鼠标事件在画布上的坐标
+        function getMousePos(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / scale;
+            const y = (event.clientY - rect.top) / scale;
+            return { x, y };
+        }
+
+        imageCanvas.addEventListener('mousedown', function(e) {
+            if (!imageLoaded) return;
+            const pos = getMousePos(imageCanvas, e);
+            
+            const unshiftedTopY = topBoundaryY * imageCanvas.height;
+            const unshiftedBottomY = bottomBoundaryY * imageCanvas.height;
+
+            // 检查是否在拖动边界线，需要考虑垂直平移
+            const shiftedTopY = unshiftedTopY + verticalOffset;
+            const shiftedBottomY = unshiftedBottomY + verticalOffset;
+
+            if (Math.abs(pos.y - shiftedTopY) < 10) {
+                isDraggingTopBoundary = true;
+            } else if (Math.abs(pos.y - shiftedBottomY) < 10) {
+                isDraggingBottomBoundary = true;
+            } else {
+                // 处理分割线的插入和删除
+                const lineCount = parseInt(lineCountInput.value, 10);
+                const lineSpacing = (unshiftedBottomY - unshiftedTopY) / (lineCount + 1);
+                // 鼠标位置的 Y 坐标减去平移量，以找到正确的行索引
+                const lineIndex = Math.floor((pos.y - shiftedTopY) / lineSpacing);
+
+                if (lineIndex >= 0 && lineIndex < verticalSplitLines.length) {
+                    const splits = verticalSplitLines[lineIndex];
+                    const existingIndex = splits.findIndex(x => Math.abs(x - pos.x) < 5); // 5px 容错
+                    if (existingIndex !== -1) {
+                        splits.splice(existingIndex, 1); // 删除分割线
+                    } else {
+                        splits.push(pos.x); // 添加新的分割线
+                        splits.sort((a, b) => a - b); // 排序
+                    }
+                    draw();
+                }
+            }
+        });
+
+        imageCanvas.addEventListener('mousemove', function(e) {
+            if (!imageLoaded) return;
+            const pos = getMousePos(imageCanvas, e);
+            if (isDraggingTopBoundary) {
+                // 计算新的边界位置，并去除垂直平移的影响
+                const newY = pos.y - verticalOffset;
+                topBoundaryY = Math.max(0, Math.min(newY / imageCanvas.height, bottomBoundaryY));
+                draw();
+            } else if (isDraggingBottomBoundary) {
+                // 计算新的边界位置，并去除垂直平移的影响
+                const newY = pos.y - verticalOffset;
+                bottomBoundaryY = Math.min(1, Math.max(newY / imageCanvas.height, topBoundaryY));
+                draw();
+            }
+        });
+
+        imageCanvas.addEventListener('mouseup', function(e) {
+            isDraggingTopBoundary = false;
+            isDraggingBottomBoundary = false;
+        });
+
+        function updateVerticalSplitLines() {
+            const lineCount = parseInt(lineCountInput.value, 10);
+            verticalSplitLines = new Array(lineCount + 1).fill(null).map(() => []);
+        }
+        
+        async function handleDownload() {
+            if (!imageLoaded) {
+                statusMessage.textContent = '请先载入图片！';
+                return;
+            }
+            loadingOverlay.classList.remove('hidden');
+            loadingMessage.textContent = '正在生成 ZIP 文件...';
+
+            const zip = new JSZip();
+            const unshiftedTopY = topBoundaryY * imageCanvas.height;
+            const unshiftedBottomY = bottomBoundaryY * imageCanvas.height;
+            const lineCount = parseInt(lineCountInput.value, 10);
+            const lineSpacing = ((unshiftedBottomY - unshiftedTopY) / (lineCount + 1));
+
+            // 遍历每一行
+            verticalSplitLines.forEach((splits, lineIndex) => {
+                // 裁剪时使用未平移的原始坐标
+                const lineTopY = unshiftedTopY + lineIndex * lineSpacing + verticalOffset;
+                
+                // 从最左侧开始（0）到第一个分割线
+                if (splits.length > 0) {
+                    const startX = 0;
+                    const width = splits[0] - startX;
+                    if (width > 0) {
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = width;
+                        tempCanvas.height = lineSpacing;
+                        tempCtx.drawImage(originalImage, startX, lineTopY, width, lineSpacing, 0, 0, width, lineSpacing);
+                        
+                        const dataURL = tempCanvas.toDataURL('image/png');
+                        const base64Data = dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+                        const fileName = `cropped_image_row-${lineIndex + 1}_part-1.png`;
+                        zip.file(fileName, base64Data, { base64: true });
+                    }
+                }
+                
+                // 从第一个分割线到最后一个，每次取一对进行裁剪
+                for (let i = 0; i < splits.length - 1; i++) {
+                    const startX = splits[i];
+                    const endX = splits[i+1];
+                    const width = endX - startX;
+
+                    if (width > 0 && lineSpacing > 0) {
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = width;
+                        tempCanvas.height = lineSpacing;
+                        tempCtx.drawImage(originalImage, startX, lineTopY, width, lineSpacing, 0, 0, width, lineSpacing);
+                        
+                        const dataURL = tempCanvas.toDataURL('image/png');
+                        const base64Data = dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+                        const fileName = `cropped_image_row-${lineIndex + 1}_part-${i + 2}.png`;
+                        zip.file(fileName, base64Data, { base64: true });
+                    }
+                }
+                
+                // 最后一个区域从最右分割线到右侧边缘
+                if (splits.length > 0) {
+                    const startX = splits[splits.length - 1];
+                    const width = imageCanvas.width - startX;
+                    if (width > 0) {
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = width;
+                        tempCanvas.height = lineSpacing;
+                        tempCtx.drawImage(originalImage, startX, lineTopY, width, lineSpacing, 0, 0, width, lineSpacing);
+                        
+                        const dataURL = tempCanvas.toDataURL('image/png');
+                        const base64Data = dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+                        const fileName = `cropped_image_row-${lineIndex + 1}_part-${splits.length + 1}.png`;
+                        zip.file(fileName, base64Data, { base64: true });
+                    }
+                }
+            });
+
+            if (Object.keys(zip.files).length === 0) {
+                loadingOverlay.classList.add('hidden');
+                statusMessage.textContent = '没有可裁剪的区域。请先插入至少一条竖直分割线。';
+                return;
+            }
+
+            try {
+                const content = await zip.generateAsync({ type: "blob" });
+                saveAs(content, "cropped_images.zip");
+                statusMessage.textContent = 'ZIP 文件已生成并下载。';
+            } catch (error) {
+                statusMessage.textContent = '生成 ZIP 文件时出错。' + error.message;
+            } finally {
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        async function handleAutoSegment() {
+            if (!imageLoaded) {
+                statusMessage.textContent = '请先载入图片！';
+                return;
+            }
+
+            loadingOverlay.classList.remove('hidden');
+            loadingMessage.textContent = '正在调用自动分割 API...';
+            statusMessage.textContent = '正在等待 API 响应...';
+
+            try {
+                const unshiftedTopY = topBoundaryY * imageCanvas.height;
+                const unshiftedBottomY = bottomBoundaryY * imageCanvas.height;
+                const lineCount = parseInt(lineCountInput.value, 10);
+                const lineSpacing = (unshiftedBottomY - unshiftedTopY) / (lineCount + 1);
+
+                // 1. 发送原始图片数据
+                const imageDataURL = originalImage.src;
+                
+                // 重置分割线数组，准备接收新数据
+                verticalSplitLines = new Array(lineCount + 1).fill(null).map(() => []);
+
+                // 循环遍历所有行，包括第一行和最后一行
+                for (let i = 0; i <= lineCount; i++) {
+                    const lineTopY = unshiftedTopY + i * lineSpacing;
+                    const lineBottomY = lineTopY + lineSpacing;
+
+                    const payload = {
+                        image_data: imageDataURL,
+                        top_y: Math.round(lineTopY + verticalOffset),
+                        bottom_y: Math.round(lineBottomY + verticalOffset),
+                        left_x: 0,
+                        right_x: imageCanvas.width
+                    };
+
+                    loadingMessage.textContent = `正在处理第 ${i + 1} 行...`;
+                    console.log(`正在发送请求，处理第 ${i + 1} 行，坐标：y=${payload.top_y}-${payload.bottom_y}`);
+
+                    const response = await fetch('http://127.0.0.1:5001/segment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API 错误: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result && result.split_positions) {
+                        // 2. 过滤掉边缘的分割点
+                        const filteredSplits = result.split_positions.filter(pos => 
+                            pos > 0 && pos < imageCanvas.width - 1
+                        );
+                        verticalSplitLines[i] = filteredSplits;
+                    }
+                }
+
+                statusMessage.textContent = '自动分割完成，已添加分割线。';
+                draw();
+
+            } catch (error) {
+                statusMessage.textContent = `自动分割失败：${error.message}。请确保本地 Python API 服务正在运行。`;
+                console.error('Auto segmentation failed:', error);
+            } finally {
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

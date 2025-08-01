@@ -1,11 +1,26 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify
+from flask_cors import CORS # 导入 CORS 模块
 import cv2
 import numpy as np
 from scipy.signal import argrelextrema, savgol_filter
 import base64
+import matplotlib
+# 使用非交互式 Agg 后端，以避免在非主线程中创建 GUI 窗口的错误
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import os
+from datetime import datetime
 
 app = Flask(__name__)
+CORS(app) # 初始化 CORS，允许所有来源的跨域请求
+
+# 设置 Matplotlib 支持中文
+plt.rcParams['font.sans-serif'] = ['Songti SC']
+plt.rcParams['axes.unicode_minus'] = False
+
+# 定义日志文件夹
+LOG_DIR = 'logs'
 
 # 定义一个可以被外部调用的核心分割函数
 def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min_char_width=25, max_char_width=45):
@@ -31,9 +46,20 @@ def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min
 
         if img is None:
             return {'error': '无法解码图像数据'}, 400
+        
+        # 添加日志：打印原始图像的尺寸
+        print(f"原始图像尺寸: {img.shape}")
 
         # 根据传入的坐标裁剪图像
         cropped_img = img[top_y:bottom_y, left_x:right_x]
+        
+        # 添加日志：打印裁剪区域的坐标和新图像尺寸
+        print(f"裁剪区域: top_y={top_y}, bottom_y={bottom_y}, left_x={left_x}, right_x={right_x}")
+        print(f"裁剪后的图像尺寸: {cropped_img.shape}")
+        
+        # 检查裁剪后的图像是否为空
+        if cropped_img.shape[0] == 0 or cropped_img.shape[1] == 0:
+            return {'error': '裁剪区域无效，图像为空'}, 400
 
         # 转为灰度图并二值化
         gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
@@ -42,15 +68,34 @@ def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min
         # 垂直投影
         vertical_projection = np.sum(binary, axis=0)
         
-        # 1. 找到绝对零点 (投影值为0的位置)
+        # 1. 找到所有连续的绝对零点区域
         zero_positions = np.where(vertical_projection == 0)[0]
-        
-        # 2. 创建初始分割点 (所有绝对零点)
-        split_positions = []
+        zero_runs = []
         if len(zero_positions) > 0:
-            split_positions = list(zero_positions)
+            # 找到连续零点的索引差值不为1的位置
+            diffs = np.diff(zero_positions, prepend=zero_positions[0]-1)
+            split_indices = np.where(diffs > 1)[0]
+            
+            # 从这些索引中提取连续零点区域
+            current_start = 0
+            for split_idx in split_indices:
+                zero_runs.append((zero_positions[current_start], zero_positions[split_idx-1]))
+                current_start = split_idx
+            zero_runs.append((zero_positions[current_start], zero_positions[-1]))
+            
+        split_positions = []
+        for start, end in zero_runs:
+            length = end - start
+            if length < 15:
+                # 区域不长，取中点作为断点
+                split_positions.append(start + length // 2)
+            else:
+                # 区域长，取两侧端点作为断点
+                split_positions.append(start)
+                split_positions.append(end)
+
         
-        # 3. 处理非零区域 (字符区域)
+        # 2. 处理非零区域 (字符区域)
         in_char = False
         char_start = 0
         
@@ -118,22 +163,74 @@ def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min
                                 closest = min(min_positions, key=lambda pos: abs(pos - center))
                                 split_positions.append(closest)
         
-        # 4. 排序和去重
+        # 3. 排序和去重
         split_positions = sorted(set(split_positions))
         
-        # 5. 过滤无效分割点
+        # 4. 过滤无效分割点
         valid_splits = []
         # 这里的 `min_char_width` 应该是相对于裁剪区域的
         prev_pos = -min_char_width
         
         for pos in split_positions:
             if pos - prev_pos >= min_char_width:
-                valid_splits.append(pos + left_x)  # 加上裁剪区域的左侧X坐标，返回全局坐标
+                # 加上裁剪区域的左侧X坐标，返回全局坐标
+                # 确保将 np.int64 转换为 Python int，以避免 JSON 序列化错误
+                valid_splits.append(int(pos + left_x))
                 prev_pos = pos
+        
+        # 5. 可视化和日志记录
+        if not os.path.exists(LOG_DIR):
+            os.makedirs(LOG_DIR)
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        log_filename = f"segmentation_log_{timestamp}.png"
+        log_filepath = os.path.join(LOG_DIR, log_filename)
+        
+        plt.figure(figsize=(10, 15))
+        
+        # 子图1: 原始图像
+        plt.subplot(3, 1, 1)
+        plt.imshow(cv2.cvtColor(cropped_img, cv2.COLOR_BGR2RGB))
+        plt.title('原始图像')
+        
+        # 子图2: 二值化图像
+        plt.subplot(3, 1, 2)
+        plt.imshow(binary, cmap='gray')
+        plt.title('二值化后图像')
+        
+        # 子图3: 垂直投影曲线和分割点
+        plt.subplot(3, 1, 3)
+        plt.plot(vertical_projection, label='投影值')
+        
+        # 将分割点坐标转换为相对于裁剪区域的坐标
+        relative_splits = [pos - left_x for pos in valid_splits]
+        for split_x in relative_splits:
+            plt.axvline(x=split_x, color='r', linestyle='--', label='分割点' if split_x == relative_splits[0] else "")
+            
+        plt.title('垂直投影随 x 轴变化曲线')
+        plt.xlabel('x 轴位置')
+        plt.ylabel('投影值')
+        plt.legend()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig(log_filepath)
+        # 如果需要本地调试时实时显示图像，可以取消下一行的注释
+        # plt.show()
+        plt.close()
+        
+        print(f"日志图像已保存到: {log_filepath}")
+        
+        # 添加日志：打印最终找到的分割点
+        print(f"原始分割点: {split_positions}")
+        print(f"找到 {len(valid_splits)} 个有效分割点。")
+        print(f"分割点位置: {valid_splits}")
 
         return valid_splits
 
     except Exception as e:
+        # 添加日志：打印详细的异常信息
+        print(f"在get_vertical_split_positions函数中发生异常: {e}")
         return {'error': str(e)}, 500
 
 @app.route('/segment', methods=['POST'])
@@ -150,7 +247,13 @@ def segment_image():
     }
     """
     data = request.json
+    
+    # 添加日志：打印收到的请求体
+    print("收到 /segment POST请求。")
+    print(f"请求数据: {data.keys()}")
+
     if not data or 'image_data' not in data or 'top_y' not in data or 'bottom_y' not in data or 'left_x' not in data or 'right_x' not in data:
+        print("错误: 无效的请求体。")
         return jsonify({'error': '无效的请求体'}), 400
 
     try:
@@ -177,11 +280,14 @@ def segment_image():
         )
         
         if isinstance(result, dict) and 'error' in result:
+            print(f"核心分割函数返回错误: {result['error']}")
             return jsonify(result), 500
         
+        print(f"成功处理请求。返回 {len(result)} 个分割点。")
         return jsonify({'split_positions': result}), 200
 
     except Exception as e:
+        print(f"在segment_image函数中发生异常: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
