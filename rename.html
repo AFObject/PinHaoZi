@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片文件名批量修改工具 - 原生版</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 file-saver 和 jszip，用于打包下载 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* CSS 样式，用于加载动画 */
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 p-4 font-sans text-gray-800 flex items-center justify-center">
+
+    <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-4xl space-y-6 border border-gray-200">
+        <h1 class="text-3xl font-extrabold text-center text-gray-900 mb-6">
+            图片文件名批量修改与下载工具
+        </h1>
+
+        <!-- 文件选择区域 -->
+        <div class="flex flex-col items-center justify-center space-y-4">
+            <label for="folderInput" class="relative cursor-pointer bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105">
+                <input
+                    id="folderInput"
+                    type="file"
+                    webkitdirectory="true"
+                    directory=""
+                    class="hidden"
+                />
+                选择文件夹
+            </label>
+            <p class="text-sm text-gray-500">请选择一个包含图片的本地文件夹</p>
+        </div>
+
+        <!-- 文件列表和操作 -->
+        <div id="fileContainer" class="hidden">
+            <!-- 统计信息 -->
+            <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl shadow-inner mb-4">
+                <span class="text-lg font-semibold">总文件数: <span id="totalCount" class="text-blue-600">0</span></span>
+                <span class="text-lg font-semibold">已选择: <span id="checkedCount" class="text-blue-600">0</span></span>
+            </div>
+
+            <!-- 文件列表 -->
+            <!-- 恢复网格布局和图片高度 -->
+            <div id="fileList" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-4 bg-gray-50 p-4 rounded-xl shadow-inner max-h-[60vh] overflow-y-auto">
+                <!-- 文件项将通过 JavaScript 动态添加 -->
+            </div>
+
+            <!-- 下载按钮 -->
+            <div class="flex justify-center mt-6">
+                <button
+                    id="downloadButton"
+                    class="w-full max-w-sm py-3 px-6 rounded-full font-bold text-lg transition-all duration-300 transform bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                    打包下载
+                </button>
+            </div>
+        </div>
+        
+        <!-- 消息和状态提示 -->
+        <div id="message" class="text-center mt-4 text-sm text-gray-600"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 获取 DOM 元素
+            const folderInput = document.getElementById('folderInput');
+            const fileContainer = document.getElementById('fileContainer');
+            const fileList = document.getElementById('fileList');
+            const totalCountSpan = document.getElementById('totalCount');
+            const checkedCountSpan = document.getElementById('checkedCount');
+            const downloadButton = document.getElementById('downloadButton');
+            const messageDiv = document.getElementById('message');
+
+            let filesData = []; // 用于存储文件信息的数据数组
+
+            // 更新统计信息
+            const updateStats = () => {
+                const total = filesData.length;
+                const checked = filesData.filter(f => f.isChecked).length;
+                totalCountSpan.textContent = total;
+                checkedCountSpan.textContent = checked;
+                downloadButton.disabled = checked === 0;
+                // 禁用按钮样式
+                if (checked === 0) {
+                    downloadButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    downloadButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'hover:shadow-xl', 'hover:scale-105');
+                } else {
+                    downloadButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    downloadButton.classList.add('bg-green-600', 'hover:bg-green-700', 'hover:shadow-xl', 'hover:scale-105');
+                }
+            };
+
+            // 渲染文件列表
+            const renderFiles = () => {
+                fileList.innerHTML = '';
+                filesData.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item relative flex flex-col items-center p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 group cursor-pointer';
+                    fileItem.dataset.index = index;
+
+                    // Check if the file is an image to create an object URL
+                    let objectURL = null;
+                    if (file.originalFile.type.startsWith('image/')) {
+                        objectURL = URL.createObjectURL(file.originalFile);
+                    }
+
+                    fileItem.innerHTML = `
+                        <!-- 图片容器 -->
+                        <!-- 恢复之前的高度设置并使用 object-cover -->
+                        <div class="w-full h-20 sm:h-24 md:h-28 bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                            ${objectURL ?
+                                `<img src="${objectURL}" alt="${file.newName}" class="w-full h-full object-contain">` :
+                                `<svg class="w-12 h-12 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>`
+                            }
+                        </div>
+
+                        <!-- 文件名输入框 -->
+                        <input
+                            type="text"
+                            value="${file.newName}"
+                            data-index="${index}"
+                            class="filename-input w-full mt-2 p-1 border border-gray-300 rounded-md text-center text-sm focus:border-blue-500 focus:ring-blue-500 focus:ring-1 transition-colors duration-200"
+                            onclick="event.stopPropagation()"
+                        />
+                        
+                        <!-- 勾选图标 -->
+                        <div class="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md transition-opacity duration-200 ${file.isChecked ? 'opacity-100' : 'opacity-0'}">
+                            <svg class="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 11l3 3 5-5"></path><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path>
+                            </svg>
+                        </div>
+                    `;
+                    fileList.appendChild(fileItem);
+
+                    // Revoke object URL after image loads to free up memory
+                    if (objectURL) {
+                        const img = fileItem.querySelector('img');
+                        if (img) {
+                            img.onload = () => URL.revokeObjectURL(objectURL);
+                        }
+                    }
+                });
+
+                // 为新元素添加事件监听器
+                fileList.querySelectorAll('.filename-input').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const index = e.target.dataset.index;
+                        filesData[index].newName = e.target.value;
+                    });
+                });
+                
+                // 将点击事件绑定到整个文件项容器
+                fileList.querySelectorAll('.file-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        const index = e.currentTarget.dataset.index;
+                        filesData[index].isChecked = !filesData[index].isChecked;
+                        renderFiles();
+                        updateStats();
+                    });
+                });
+            };
+
+            // 处理文件夹选择
+            folderInput.addEventListener('change', (e) => {
+                const fileListArray = Array.from(e.target.files);
+                if (fileListArray.length > 0) {
+                    filesData = fileListArray.map(file => ({
+                        originalFile: file,
+                        newName: file.name,
+                        isChecked: false,
+                    }));
+                    fileContainer.classList.remove('hidden');
+                    renderFiles();
+                    updateStats();
+                    messageDiv.textContent = '文件已成功加载。';
+                } else {
+                    filesData = [];
+                    fileContainer.classList.add('hidden');
+                    updateStats();
+                    messageDiv.textContent = '请选择一个文件夹。';
+                }
+            });
+
+            // 处理下载
+            downloadButton.addEventListener('click', async () => {
+                const checkedFiles = filesData.filter(f => f.isChecked);
+                if (checkedFiles.length === 0) {
+                    messageDiv.textContent = '请至少选择一个文件进行下载。';
+                    return;
+                }
+
+                downloadButton.disabled = true;
+                downloadButton.innerHTML = `<div class="flex items-center justify-center space-x-2">
+                                                <div class="w-5 h-5 border-2 border-white border-t-2 border-t-transparent rounded-full animate-spin"></div>
+                                                <span>正在打包...</span>
+                                            </div>`;
+                downloadButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                downloadButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'hover:shadow-xl', 'hover:scale-105');
+                messageDiv.textContent = '正在打包文件...';
+
+                try {
+                    const zip = new JSZip();
+                    for (const file of checkedFiles) {
+                        zip.file(file.newName, file.originalFile);
+                    }
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    saveAs(content, 'renamed_images.zip');
+                    messageDiv.textContent = '打包成功，下载已开始！';
+                } catch (error) {
+                    console.error('打包或下载失败:', error);
+                    messageDiv.textContent = '打包或下载失败，请重试。';
+                } finally {
+                    downloadButton.innerHTML = '打包下载';
+                    downloadButton.disabled = false;
+                    updateStats();
+                }
+            });
+
+            // 初始状态更新
+            updateStats();
+        });
+    </script>
+</body>
+</html>

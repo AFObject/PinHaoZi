@@ -1,2 +1,10 @@
-handwriting_chars/*
-logs/*
+handwriting_chars
+logs
+test_chars
+test.bash
+test.py
+trash
+*.png
+output
+raw
+cropjb1
