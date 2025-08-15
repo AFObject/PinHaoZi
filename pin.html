@@ -67,6 +67,20 @@
             background-color: #fff;
             object-fit: contain;
         }
+
+        /* 针对无法找到图片时的样式 */
+        .output-area img:not([src*="."])::before {
+            content: attr(alt); /* 显示alt文本 */
+            display: block;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
+            text-align: center;
+            background-color: #ffe0b2; /* 浅橙色背景 */
+            color: #e65100; /* 深橙色文字 */
+            font-size: 0.8em;
+            border: 1px dashed #e65100;
+        }
         
         .output-area .missing-char {
             font-family: 'Font1076', sans-serif;
@@ -153,7 +167,7 @@
             const stats = document.getElementById('stats');
 
             function renderText() {
-                const text = inputText.value;
+                const text = inputText.value.replace(/——/g, '¨');
                 outputArea.innerHTML = '';
                 const missingChars = new Set();
                 
@@ -192,6 +206,10 @@
                         img.style.border = 'none'; // 移除边框
                         img.style.backgroundColor = 'transparent'; // 透明背景
                         img.style.marginRight = '5px'; // 稍微右边距，模拟字间距
+                    } else if (char === '¨') {
+                        img.src = `handwriting_chars/_pozhe.png`
+                    } else if (char === '#') {
+                        img.src = `handwriting_chars/_hash.png`;
                     } else if (char === '?') {
                         img.src = `handwriting_chars/_quest.png`;
                     } else if (char === '/') {
@@ -216,7 +234,7 @@
                             // this.style.border = '1px dashedrgb(255, 239, 231)'; // 虚线边框
                             this.style.textAlign = 'center';
                             this.style.lineHeight = '35px'; // 垂直居中文字
-                            this.style.fontSize = '0.8em';
+                            this.style.fontSize = '1.2em';
                             this.className = 'missing-char'; // 添加一个类名用于样式
                             this.src = ''; // 清除错误的src，防止浏览器继续尝试加载
                         };
@@ -228,10 +246,9 @@
             inputText.addEventListener('input', renderText);
             
             exportButton.addEventListener('click', () => {
-                stats.textContent = `总字符数: ${inputText.value.length}，缺失字迹: ${document.querySelectorAll('.missing-char').length}`;
                 outputArea.scrollTop = outputArea.scrollHeight;
 
-                const missingCharsSet = new Set(Array.from(document.querySelectorAll('.missing-char')).map(el => el.textContent));
+                const missingCharsSet = new Set(Array.from(document.querySelectorAll('.missing-char')).map(el => el.title));
                 const missingList = Array.from(missingCharsSet).join('');
                 
                 if (missingList.length === 0) {
@@ -239,6 +256,7 @@
                 } else {
                     missingCharsOutput.textContent = `缺失字迹: ${missingList}`;
                 }
+                stats.textContent = `总字符数: ${inputText.value.length}，缺失字迹: ${document.querySelectorAll('.missing-char').length}/${missingList.length}`;
             });
             
             // Initial render
