@@ -16,6 +16,11 @@
         }
 
         #controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            bottom: 20px;
+            width: 250px;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -77,6 +82,18 @@
             max-width: 100%;
             height: auto;
         }
+
+        #canvasContainer {
+            overflow-y: scroll;
+            overflow-x: scroll;
+            right: 0px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 20px;
+            padding-left: 300px;
+        }
     </style>
 </head>
 
@@ -97,10 +114,10 @@
         <button id="saveBtn">导出图片</button>
     </div>
 
-    <canvas id="canvas"></canvas>
+    <div id="canvasContainer"></div>
 
     <script>
-        let pageConfig = {
+        let config = {
             textFrame: [150, 80, 750], // 上边界, 左边界, 右边界, 行距
             fontSize: 32,
             lineHeight: 35.2,
@@ -116,18 +133,6 @@
             ]
         };
 
-
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-
-        let backgroundImg = new Image();
-        backgroundImg.src = pageConfig.background; // 默认背景图路径
-
-        backgroundImg.onload = () => {
-            resizeCanvas(backgroundImg);
-            draw();
-        };
-
         // 背景上传
         document.getElementById('bgUpload').addEventListener('change', e => {
             const file = e.target.files[0];
@@ -137,7 +142,7 @@
                     backgroundImg = new Image();
                     backgroundImg.onload = () => {
                         resizeCanvas(backgroundImg);
-                        draw();
+                        startDrawing();
                     };
                     backgroundImg.src = evt.target.result;
                     pageConfig.background = evt.target.result;
@@ -146,7 +151,15 @@
             }
         });
 
-        document.getElementById('renderBtn').addEventListener('click', draw);
+        function startDrawing() {
+            document.getElementById('canvasContainer').innerHTML = ''; // 清空画布容器
+            const text = document.getElementById('textInput').value;
+            draw(text, config);
+        }
+
+        document.getElementById('renderBtn').onclick = () => {
+            startDrawing();
+        };
 
         document.getElementById('saveBtn').addEventListener('click', () => {
             const link = document.createElement('a');
@@ -155,17 +168,6 @@
             link.click();
         });
 
-        // 自动调整 canvas 尺寸
-        function resizeCanvas(img) {
-            const targetWidth = 800;
-            const scale = targetWidth / img.width;
-            const targetHeight = Math.round(img.height * scale);
-
-            canvas.width = targetWidth * 2;   // 2x 高清
-            canvas.height = targetHeight * 2;
-            canvas.style.width = targetWidth + "px";
-            canvas.style.height = targetHeight + "px";
-        }
 
         // 判断字符是否为中文
         function isChinese(char) {
@@ -183,29 +185,42 @@
         }
 
         document.getElementById('lineHeight').onchange = function() {
-            pageConfig.lineHeight = parseFloat(this.value);
+            config.lineHeight = parseFloat(this.value);
         };
         document.getElementById('fontSize').onchange = function() {
-            pageConfig.fontSize = parseFloat(this.value);
+            config.fontSize = parseFloat(this.value);
         };
         document.getElementById('topMargin').onchange = function() {
-            pageConfig.textFrame[0] = parseFloat(this.value);
+            config.textFrame[0] = parseFloat(this.value);
         };
         document.getElementById('leftMargin').onchange = function() {
-            pageConfig.textFrame[1] = parseFloat(this.value);
+            config.textFrame[1] = parseFloat(this.value);
         };
         document.getElementById('rightMargin').onchange = function() {
-            pageConfig.textFrame[2] = parseFloat(this.value);
+            config.textFrame[2] = parseFloat(this.value);
         };
         document.getElementById('smartPunctuation').onchange = function() {
-            pageConfig.smartPunctuation = this.checked;
+            config.smartPunctuation = this.checked;
         };
         document.getElementById('showLines').onchange = function() {
-            pageConfig.showLines = this.checked;
+            config.showLines = this.checked;
         };
 
-        async function draw() {
-            const text = document.getElementById('textInput').value.replace(/——/g, '¨');
+        function waitImageLoad(img) {
+            return new Promise((resolve) => {
+                // 如果图片已经加载完成，直接 resolve
+                if (img.complete) {
+                resolve();
+                return;
+                }
+                // 否则等待 onload 事件
+                img.onload = () => resolve();
+            });
+        }
+
+        async function draw(text_, pageConfig) {
+            console.log(`绘制 ${text_}`);
+            text = text_.replace(/——/g, '¨');
             const lineHeight = pageConfig.lineHeight;
             const fontSize = pageConfig.fontSize;
             const topMargin = pageConfig.textFrame[0];
@@ -217,6 +232,27 @@
             const lineTop = pageConfig.lineFrame[0];
             const lineLeft = pageConfig.lineFrame[1];
             const lineRight = pageConfig.lineFrame[2];
+            const background = pageConfig.background;
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+            // 自动调整 canvas 尺寸
+            let backgroundImg = new Image();
+            backgroundImg.src = config.background; // 默认背景图路径
+            await waitImageLoad(backgroundImg);
+            function resizeCanvas(img) {
+                const targetWidth = 800;
+                const scale = targetWidth / img.width;
+                const targetHeight = Math.round(img.height * scale);
+
+                canvas.width = targetWidth * 2;   // 2x 高清
+                canvas.height = targetHeight * 2;
+                canvas.style.width = targetWidth + "px";
+                canvas.style.height = targetHeight + "px";
+            }
+            resizeCanvas(backgroundImg);
+            document.getElementById('canvasContainer').appendChild(canvas);
+            // console.log("开始绘制...", pageConfig, "以上");
+            // console.log("当前配置:", pageConfig);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -229,7 +265,8 @@
             const maxX = rightMargin * 2; // 右边界
 
             const lines = text.split("\n");
-
+            let currCnt = 0;
+            let wordCount = 0;
             // 逐行处理
             for (let line of lines) {
                 // 每行开始时重置x位置
@@ -237,6 +274,7 @@
                 
                 // 处理一行中的每个字符
                 for (let i = 0; i < line.length; i++) {
+                    wordCount++;
                     const char = line[i];
                     
                     // 处理空格
@@ -259,20 +297,27 @@
                     const charWidth = img.width ? img.width * scale : 35; // 35px占位符
                     const charHeight = fontSize * 2;
                     
-                    // 智能换行处理
+                    // 换行处理
                     if (x + charWidth > maxX) {
                         if (smartPunctuation && isPunctuation(char)) {
                             // do nothing, just skip this char
                         } else {
                             x = leftMargin * 2;
                             y += lineHeight * 2;
+                            currCnt++;
+                            console.log(`行数 ${currCnt}`)
+                            if (currCnt > lineCount) {
+                                drawLines();
+                                draw(text.slice(wordCount - 1), pageConfig);
+                                return;
+                            }
                         }
                     }
                     
                     // 绘制字符
                     if (img.width) {
                         ctx.drawImage(img, x, y, charWidth, charHeight);
-                        // console.log(`绘制字符: ${char} at (${x}, ${y})`);
+                        console.log(`绘制字符: ${char} at (${x}, ${y})`);
                     }
                     
                     // 更新x位置
@@ -292,31 +337,41 @@
                 
                 // 一行结束，换行
                 y += lineHeight * 2;
+                currCnt++;
+                wordCount++;
+                console.log(`行数 ${currCnt}`)
+                if (currCnt > lineCount) {
+                    drawLines();
+                    draw(text.slice(wordCount), pageConfig); // 注意 wordCount 不减一，换页不用重复换行
+                    return;
+                }
             }
 
-            // 绘制横线
-            if (showLines) {
-                ctx.strokeStyle = pageConfig.lineColor;
-                ctx.lineWidth = pageConfig.lineWidth;
-                let lineY = lineTop * 2;
-                for (let i = 0; i < lineCount; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(lineLeft * 2, lineY);
-                    ctx.lineTo(lineRight * 2, lineY);
-                    ctx.stroke();
-                    lineY += lineHeight * 2;
-                }
-                // 绘制额外的线条
-                for (let [width, color, left, top, right, bottom] of pageConfig.additional) {
-                    console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = width;
-                    ctx.beginPath();
-                    ctx.moveTo(left * 2, top * 2);
-                    ctx.lineTo(right * 2, bottom * 2);
-                    ctx.stroke();
+            function drawLines() {
+                if (showLines) {
+                    ctx.strokeStyle = pageConfig.lineColor;
+                    ctx.lineWidth = pageConfig.lineWidth;
+                    let lineY = lineTop * 2;
+                    for (let i = 0; i < lineCount; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(lineLeft * 2, lineY);
+                        ctx.lineTo(lineRight * 2, lineY);
+                        ctx.stroke();
+                        lineY += lineHeight * 2;
+                    }
+                    // 绘制额外的线条
+                    for (let [width, color, left, top, right, bottom] of pageConfig.additional) {
+                        console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = width;
+                        ctx.beginPath();
+                        ctx.moveTo(left * 2, top * 2);
+                        ctx.lineTo(right * 2, bottom * 2);
+                        ctx.stroke();
+                    }
                 }
             }
+            drawLines();
         }
 
         // 封装一个加载单个字图片的函数
@@ -352,6 +407,7 @@
             });
         }
 
+        draw('拼好字——The quick brown fox jumps over the lazy dog and runs away.\n滚滚长江东逝水，浪花淘尽英雄。\n是非成败转头空。\n青山依旧在，几度夕阳红。\n白发渔樵江渚上，惯看秋月春风。\n一壶浊酒喜相逢。\n古今多少事，都付笑谈中。', config); // 初始绘制空内容
     </script>
 </body>
 
