@@ -84,7 +84,7 @@
     <div id="controls">
         <h2>拼好字设置</h2>
         <textarea id="textInput" rows="5" placeholder="输入要拼的文字"></textarea>
-        <label>行距: <input type="number" id="lineHeight" value="35"></label>
+        <label>行距: <input type="number" id="lineHeight" value="35.2"></label>
         <label>字大小(px): <input type="number" id="fontSize" value="32"></label>
         <label>上边界: <input type="number" id="topMargin" value="150"></label>
         <label>左边界: <input type="number" id="leftMargin" value="80"></label>
@@ -101,15 +101,19 @@
 
     <script>
         let pageConfig = {
-            textFrame: (150, 80, 750, 35), // 上边界, 左边界, 右边界, 行距
+            textFrame: [150, 80, 750], // 上边界, 左边界, 右边界, 行距
             fontSize: 32,
-            lineFrame: (140, 70, 760, 35),
+            lineHeight: 35.2,
+            lineFrame: [178, 63, 776],
             lineWidth: 2,
-            lineColor: "#777",
+            lineColor: "#dedede",
             lineCount: 25,
             smartPunctuation: true,
             showLines: true,
-            background: "default_bg.png" // 默认背景图路径
+            background: "default_bg.png",
+            additional: [
+                [2.5, "#c3d0dd", 63, 1057, 776, 1057]
+            ]
         };
 
 
@@ -117,7 +121,7 @@
         const ctx = canvas.getContext('2d');
 
         let backgroundImg = new Image();
-        backgroundImg.src = "default_bg.png"; // 默认背景图路径
+        backgroundImg.src = pageConfig.background; // 默认背景图路径
 
         backgroundImg.onload = () => {
             resizeCanvas(backgroundImg);
@@ -136,6 +140,7 @@
                         draw();
                     };
                     backgroundImg.src = evt.target.result;
+                    pageConfig.background = evt.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -177,34 +182,46 @@
             return /[，。！？…—、；："'‘’]/.test(char);
         }
 
+        document.getElementById('lineHeight').onchange = function() {
+            pageConfig.lineHeight = parseFloat(this.value);
+        };
+        document.getElementById('fontSize').onchange = function() {
+            pageConfig.fontSize = parseFloat(this.value);
+        };
+        document.getElementById('topMargin').onchange = function() {
+            pageConfig.textFrame[0] = parseFloat(this.value);
+        };
+        document.getElementById('leftMargin').onchange = function() {
+            pageConfig.textFrame[1] = parseFloat(this.value);
+        };
+        document.getElementById('rightMargin').onchange = function() {
+            pageConfig.textFrame[2] = parseFloat(this.value);
+        };
+        document.getElementById('smartPunctuation').onchange = function() {
+            pageConfig.smartPunctuation = this.checked;
+        };
+        document.getElementById('showLines').onchange = function() {
+            pageConfig.showLines = this.checked;
+        };
+
         async function draw() {
             const text = document.getElementById('textInput').value.replace(/——/g, '¨');
-            const lineHeight = parseInt(document.getElementById('lineHeight').value);
-            const fontSize = parseInt(document.getElementById('fontSize').value);
-            const topMargin = parseInt(document.getElementById('topMargin').value);
-            const leftMargin = parseInt(document.getElementById('leftMargin').value);
-            const rightMargin = parseInt(document.getElementById('rightMargin').value);
-            const smartPunctuation = document.getElementById('smartPunctuation').checked;
-            const showLines = document.getElementById('showLines').checked;
+            const lineHeight = pageConfig.lineHeight;
+            const fontSize = pageConfig.fontSize;
+            const topMargin = pageConfig.textFrame[0];
+            const leftMargin = pageConfig.textFrame[1];
+            const rightMargin = pageConfig.textFrame[2];
+            const smartPunctuation = pageConfig.smartPunctuation;
+            const showLines = pageConfig.showLines;
+            const lineCount = pageConfig.lineCount;
+            const lineTop = pageConfig.lineFrame[0];
+            const lineLeft = pageConfig.lineFrame[1];
+            const lineRight = pageConfig.lineFrame[2];
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (backgroundImg) {
                 ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-            }
-
-            // 绘制横线
-            if (showLines) {
-                ctx.strokeStyle = 'rgba(255, 0, 0, 0.2)';
-                ctx.lineWidth = 1;
-                let lineY = topMargin * 2;
-                while (lineY < canvas.height) {
-                    ctx.beginPath();
-                    ctx.moveTo(leftMargin * 2, lineY);
-                    ctx.lineTo(rightMargin * 2, lineY);
-                    ctx.stroke();
-                    lineY += lineHeight * 2;
-                }
             }
 
             let x = leftMargin * 2;
@@ -252,16 +269,10 @@
                         }
                     }
                     
-                    // // 如果超出右边界，强制换行（即使智能标点关闭）
-                    // if (x + charWidth > maxX) {
-                    //     console.log(`强制换行: "${char}" 超出右边界`);
-                    //     x = leftMargin * 2;
-                    //     y += lineHeight * 2;
-                    // }
-                    
                     // 绘制字符
                     if (img.width) {
                         ctx.drawImage(img, x, y, charWidth, charHeight);
+                        // console.log(`绘制字符: ${char} at (${x}, ${y})`);
                     }
                     
                     // 更新x位置
@@ -281,6 +292,30 @@
                 
                 // 一行结束，换行
                 y += lineHeight * 2;
+            }
+
+            // 绘制横线
+            if (showLines) {
+                ctx.strokeStyle = pageConfig.lineColor;
+                ctx.lineWidth = pageConfig.lineWidth;
+                let lineY = lineTop * 2;
+                for (let i = 0; i < lineCount; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(lineLeft * 2, lineY);
+                    ctx.lineTo(lineRight * 2, lineY);
+                    ctx.stroke();
+                    lineY += lineHeight * 2;
+                }
+                // 绘制额外的线条
+                for (let [width, color, left, top, right, bottom] of pageConfig.additional) {
+                    console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.beginPath();
+                    ctx.moveTo(left * 2, top * 2);
+                    ctx.lineTo(right * 2, bottom * 2);
+                    ctx.stroke();
+                }
             }
         }
 
