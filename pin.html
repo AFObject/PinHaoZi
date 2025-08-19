@@ -143,6 +143,15 @@
             background-color: #fff3e0;
             word-break: break-all;
         }
+
+        #exportImageButton {
+            background-color: #2196F3; /* 蓝色 */
+            margin-left: 10px;
+        }
+
+        #exportImageButton:hover {
+            background-color: #1976D2;
+        }
     </style>
 </head>
 <body>
@@ -153,7 +162,7 @@
         <div id="outputArea" class="output-area"></div>
         <div class="action-buttons">
             <div id="stats" class="stats"></div>
-            <button id="exportButton">导出缺失字符</button>
+            <button id="exportButton">导出缺失字符</button>                <button id="exportImageButton">导出预览区图片</button>
         </div>
         <div id="missingCharsOutput"></div>
     </div>
@@ -187,7 +196,9 @@
                         continue;
                     }
                     
-                    const img = document.createElement('img');
+                    const img = document.createElement('img');                    
+                    // img.crossOrigin = 'anonymous'; // 新增：解决跨域图片污染问题
+
                     img.title = char;
 
                     if (char === ' ') {
@@ -258,10 +269,26 @@
                 }
                 stats.textContent = `总字符数: ${inputText.value.length}，缺失字迹: ${document.querySelectorAll('.missing-char').length}/${missingList.length}`;
             });
+
+        // 新增：导出图片功能
+            exportImageButton.addEventListener('click', () => {
+                html2canvas(outputArea, {
+                    useCORS: true, // 如果图片来自不同源，需要设置此项
+                    allowTaint: true,
+                    scale: 2 // 可以增加分辨率
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'handwriting.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                });
+            });
+
             
             // Initial render
             renderText();
         });
     </script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </body>
 </html>

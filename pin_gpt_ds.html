@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>拼好字 Demo (Canvas)</title>
+    <style>
+        /* 保持原有样式不变 */
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            margin: 20px;
+            background: #f5f5f7;
+        }
+
+        #controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            min-width: 250px;
+        }
+
+        #controls h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        label {
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        input[type="number"],
+        textarea {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: none;
+            width: 100%;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #4a90e2;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #357ab8;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="controls">
+        <h2>拼好字设置</h2>
+        <textarea id="textInput" rows="5" placeholder="输入要拼的文字"></textarea>
+        <label>行距: <input type="number" id="lineHeight" value="35"></label>
+        <label>字大小(px): <input type="number" id="fontSize" value="32"></label>
+        <label>上边界: <input type="number" id="topMargin" value="150"></label>
+        <label>左边界: <input type="number" id="leftMargin" value="80"></label>
+        <label>右边界: <input type="number" id="rightMargin" value="750"></label>
+        <label>背景纸: <input type="file" id="bgUpload" accept="image/*"></label>
+        <!-- 添加智能标点处理和显示横线的选项 -->
+        <label><input type="checkbox" id="smartPunctuation" checked> 智能标点处理</label>
+        <label><input type="checkbox" id="showLines"> 显示横线</label>
+        <button id="renderBtn">生成预览</button>
+        <button id="saveBtn">导出图片</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        let pageConfig = {
+            textFrame: (150, 80, 750, 35), // 上边界, 左边界, 右边界, 行距
+            fontSize: 32,
+            lineFrame: (140, 70, 760, 35),
+            lineWidth: 2,
+            lineColor: "#777",
+            lineCount: 25,
+            smartPunctuation: true,
+            showLines: true,
+            background: "default_bg.png" // 默认背景图路径
+        };
+
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let backgroundImg = new Image();
+        backgroundImg.src = "default_bg.png"; // 默认背景图路径
+
+        backgroundImg.onload = () => {
+            resizeCanvas(backgroundImg);
+            draw();
+        };
+
+        // 背景上传
+        document.getElementById('bgUpload').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    backgroundImg = new Image();
+                    backgroundImg.onload = () => {
+                        resizeCanvas(backgroundImg);
+                        draw();
+                    };
+                    backgroundImg.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('renderBtn').addEventListener('click', draw);
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = '拼好字.png';
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        });
+
+        // 自动调整 canvas 尺寸
+        function resizeCanvas(img) {
+            const targetWidth = 800;
+            const scale = targetWidth / img.width;
+            const targetHeight = Math.round(img.height * scale);
+
+            canvas.width = targetWidth * 2;   // 2x 高清
+            canvas.height = targetHeight * 2;
+            canvas.style.width = targetWidth + "px";
+            canvas.style.height = targetHeight + "px";
+        }
+
+        // 判断字符是否为中文
+        function isChinese(char) {
+            return /[\u4e00-\u9fa5]/.test(char);
+        }
+
+        // 判断字符是否为西文或数字
+        function isWestern(char) {
+            return /[a-zA-Z0-9]/.test(char);
+        }
+
+        // 判断是否为标点符号
+        function isPunctuation(char) {
+            return /[，。！？…—、；："'‘’]/.test(char);
+        }
+
+        async function draw() {
+            const text = document.getElementById('textInput').value.replace(/——/g, '¨');
+            const lineHeight = parseInt(document.getElementById('lineHeight').value);
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+            const topMargin = parseInt(document.getElementById('topMargin').value);
+            const leftMargin = parseInt(document.getElementById('leftMargin').value);
+            const rightMargin = parseInt(document.getElementById('rightMargin').value);
+            const smartPunctuation = document.getElementById('smartPunctuation').checked;
+            const showLines = document.getElementById('showLines').checked;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (backgroundImg) {
+                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            }
+
+            // 绘制横线
+            if (showLines) {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.2)';
+                ctx.lineWidth = 1;
+                let lineY = topMargin * 2;
+                while (lineY < canvas.height) {
+                    ctx.beginPath();
+                    ctx.moveTo(leftMargin * 2, lineY);
+                    ctx.lineTo(rightMargin * 2, lineY);
+                    ctx.stroke();
+                    lineY += lineHeight * 2;
+                }
+            }
+
+            let x = leftMargin * 2;
+            let y = topMargin * 2;
+            const maxX = rightMargin * 2; // 右边界
+
+            const lines = text.split("\n");
+
+            // 逐行处理
+            for (let line of lines) {
+                // 每行开始时重置x位置
+                x = leftMargin * 2;
+                
+                // 处理一行中的每个字符
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    // 处理空格
+                    if (char === ' ') {
+                        x += 10 * 2; // 空格宽度20px
+                        continue;
+                    }
+                    
+                    // 处理制表符
+                    if (char === '\t') {
+                        x += 40 * 2; // 制表符宽度80px
+                        continue;
+                    }
+                    
+                    // 加载字符图片
+                    const { img } = await loadCharImage(char);
+                    
+                    // 计算字符尺寸
+                    const scale = img.height ? (fontSize * 2) / img.height : 1;
+                    const charWidth = img.width ? img.width * scale : 35; // 35px占位符
+                    const charHeight = fontSize * 2;
+                    
+                    // 智能换行处理
+                    if (x + charWidth > maxX) {
+                        if (smartPunctuation && isPunctuation(char)) {
+                            // do nothing, just skip this char
+                        } else {
+                            x = leftMargin * 2;
+                            y += lineHeight * 2;
+                        }
+                    }
+                    
+                    // // 如果超出右边界，强制换行（即使智能标点关闭）
+                    // if (x + charWidth > maxX) {
+                    //     console.log(`强制换行: "${char}" 超出右边界`);
+                    //     x = leftMargin * 2;
+                    //     y += lineHeight * 2;
+                    // }
+                    
+                    // 绘制字符
+                    if (img.width) {
+                        ctx.drawImage(img, x, y, charWidth, charHeight);
+                    }
+                    
+                    // 更新x位置
+                    x += charWidth;
+                    
+                    // 中英文间隔处理
+                    if (i + 1 < line.length) {
+                        const nextChar = line[i + 1];
+                        if (!isPunctuation(nextChar)) {
+                            if ((isChinese(char) && isWestern(nextChar)) || 
+                                (isWestern(char) && isChinese(nextChar))) {
+                                x += 5 * 2; // 10px间隔
+                            }
+                        }
+                    }
+                }
+                
+                // 一行结束，换行
+                y += lineHeight * 2;
+            }
+        }
+
+        // 封装一个加载单个字图片的函数
+        function loadCharImage(char) {
+            return new Promise(resolve => {
+                const img = new Image();
+                
+                // 特殊字符对照表
+                if (char === '¨') {
+                    img.src = `handwriting_chars/_pozhe.png`;
+                } else if (char === '#') {
+                    img.src = `handwriting_chars/_hash.png`;
+                } else if (char === '?') {
+                    img.src = `handwriting_chars/_quest.png`;
+                } else if (char === '/') {
+                    img.src = `handwriting_chars/_slash.png`;
+                } else if (char === ':') {
+                    img.src = `handwriting_chars/_colon.png`;
+                } else if (char === '.') {
+                    img.src = `handwriting_chars/dot.png`;
+                } else if (/[A-Z]/.test(char)) {
+                    img.src = `handwriting_chars/+c${char}.png`;
+                } else {
+                    img.src = `/Users/apple/Desktop/PinHaoZi/handwriting_chars/${char}.png`;
+                }
+                
+                img.onload = () => resolve({ char, img });
+                img.onerror = () => {
+                    console.warn("缺少字图:", char);
+                    // 返回空图占位
+                    resolve({ char, img: new Image() });
+                };
+            });
+        }
+
+    </script>
+</body>
+
+</html>
