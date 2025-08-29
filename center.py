@@ -10,7 +10,7 @@ def contains_chinese(text):
             return True
     return False
 
-def find_non_white_region(img, threshold=240):
+def find_non_white_region(img, threshold=180):
     """检测图像非空白区域的垂直范围"""
     gray = img.convert('L')
     arr = np.array(gray)

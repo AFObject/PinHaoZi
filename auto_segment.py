@@ -265,8 +265,8 @@ def segment_image():
         left_x = data['left_x']
         right_x = data['right_x']
         
-        min_char_width = data.get('min_char_width', 18)
-        max_char_width = data.get('max_char_width', 50)
+        min_char_width = data.get('min_char_width', 30)
+        max_char_width = data.get('max_char_width', 80)
         
         # 调用核心分割函数
         result = get_vertical_split_positions(

@@ -5,94 +5,262 @@
     <meta charset="UTF-8">
     <title>拼好字 Demo (Canvas)</title>
     <style>
-        /* 保持原有样式不变 */
+        /* 全局样式 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             display: flex;
             flex-direction: row;
             gap: 30px;
-            margin: 20px;
-            background: #f5f5f7;
+            margin: 0;
+            background: #f8fafc;
+            color: #334155;
+            min-height: 100vh;
+            padding: 20px;
         }
 
+        /* 左侧控制面板 - 美化 */
         #controls {
             position: fixed;
             top: 20px;
             left: 20px;
             bottom: 20px;
-            width: 250px;
+            width: 280px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            padding: 20px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            gap: 18px;
+            padding: 24px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 5px 10px rgba(0, 0, 0, 0.03);
             min-width: 250px;
+            overflow-y: auto;
+            z-index: 10;
+            border: 1px solid #e2e8f0;
         }
 
         #controls h2 {
-            margin: 0;
-            font-size: 18px;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 8px;
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
         }
 
-        label {
+        #controls label {
             font-size: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 4px;
+            color: #475569;
+            font-weight: 500;
         }
 
-        input[type="number"],
-        textarea {
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            padding: 5px;
+        #controls input[type="number"],
+        #controls textarea {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
             font-size: 14px;
-        }
-
-        textarea {
-            resize: none;
+            background: #ffffff;
+            transition: all 0.2s ease;
+            color: #334155;
             width: 100%;
+            margin-top: 4px;
         }
 
-        button {
-            padding: 8px 12px;
+        #controls input[type="number"]:focus,
+        #controls textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        #controls textarea {
+            resize: none;
+            min-height: 100px;
+        }
+
+        #controls button {
+            padding: 12px 16px;
             border: none;
-            border-radius: 6px;
-            background: #4a90e2;
+            border-radius: 10px;
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
             color: white;
             cursor: pointer;
-            font-size: 14px;
-            transition: 0.2s;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
         }
 
-        button:hover {
-            background: #357ab8;
+        #controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(79, 70, 229, 0.25);
         }
 
+        #controls button:active {
+            transform: translateY(0);
+        }
+
+        /* 右侧信息面板 - 美化 */
+        #info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 24px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 5px 10px rgba(0, 0, 0, 0.03);
+            z-index: 10;
+            border: 1px solid #e2e8f0;
+        }
+
+        #info div:first-child {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        #info>div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        #info>div:last-child {
+            border-bottom: none;
+        }
+
+        #info div div {
+            font-weight: 500;
+            color: #475569;
+        }
+
+        #missingChars {
+            display: block !important;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        /* 画布区域 */
         canvas {
-            border: 1px solid #ccc;
+            border: 1px solid #e2e8f0;
             background: #fff;
             border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 100%;
-            height: auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
         }
 
         #canvasContainer {
-            overflow-y: scroll;
-            overflow-x: scroll;
+            overflow-y: auto;
+            overflow-x: auto;
             right: 0px;
             flex-grow: 1;
             display: flex;
             justify-content: flex-start;
-            align-items: center;
+            align-items: flex-start;
             gap: 20px;
-            padding-left: 300px;
+            padding-left: 320px;
+            padding-right: 300px;
+            padding-top: 20px;
+            padding-bottom: 40px;
+        }
+
+        /* 文件上传样式美化 */
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 10px 16px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #64748b;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .file-upload-label:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        /* 复选框样式美化 */
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        input[type="checkbox"]:checked::before {
+            content: "✓";
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
@@ -112,26 +280,22 @@
         <label><input type="checkbox" id="showLines"> 显示横线</label>
         <button id="renderBtn">生成预览</button>
         <button id="saveBtn">导出图片</button>
+        <button id="countBtn" onclick="displayCount()">重新统计</button>
     </div>
-
+    <div id="info">
+        页数：<div id="page"></div>
+        行数：<div id="lineCount"></div>
+        字符数：<div id="wordCount"></div>
+        缺失字符数：<div id="missingCount"></div>
+        缺失字符：<div id="missingChars"></div>
+    </div>
     <div id="canvasContainer"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="configs.js"></script>
     <script>
-        let config = {
-            textFrame: [150, 80, 750], // 上边界, 左边界, 右边界, 行距
-            fontSize: 32,
-            lineHeight: 35.2,
-            lineFrame: [178, 63, 776],
-            lineWidth: 2,
-            lineColor: "#dedede",
-            lineCount: 25,
-            smartPunctuation: true,
-            showLines: true,
-            background: "default_bg.png",
-            additional: [
-                [2.5, "#c3d0dd", 63, 1057, 776, 1057]
-            ]
-        };
+        let config = kokuyo_line_front;
+        folder = "handwriting_chars"//"output_chars_ds";
 
         // 背景上传
         document.getElementById('bgUpload').addEventListener('change', e => {
@@ -139,22 +303,28 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function (evt) {
-                    backgroundImg = new Image();
-                    backgroundImg.onload = () => {
-                        resizeCanvas(backgroundImg);
-                        startDrawing();
-                    };
-                    backgroundImg.src = evt.target.result;
-                    pageConfig.background = evt.target.result;
+                    config.background = evt.target.result;
+                    startDrawing();
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        function startDrawing() {
+        let page_count = 0;
+        let line_count = 0;
+        let missing_count = 0;
+        let missing_chars = new Map(); // 改为 Map
+
+        async function startDrawing() {
+            page_count = 0;
+            line_count = 0;
+            word_count = 0;
+            missing_count = 0;
+            missing_chars.clear(); // Map 清空
             document.getElementById('canvasContainer').innerHTML = ''; // 清空画布容器
             const text = document.getElementById('textInput').value;
-            draw(text, config);
+            await draw(text, config);
+            displayCount();
         }
 
         document.getElementById('renderBtn').onclick = () => {
@@ -162,10 +332,47 @@
         };
 
         document.getElementById('saveBtn').addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = '拼好字.png';
-            link.href = canvas.toDataURL("image/png");
-            link.click();
+            const { jsPDF } = window.jspdf;
+            // 获取容器内所有canvas元素
+            const canvases = document.querySelectorAll('#canvasContainer canvas');
+            let pdf;
+
+            for (const [index, canvas] of canvases.entries()) {
+
+                // 处理跨域问题并转为图片数据
+                const dataUrl = canvas.toDataURL('image/png');
+
+                // 获取canvas实际尺寸
+                const { width, height } = canvas;
+                // 根据canvas尺寸决定PDF方向和尺寸
+                const orientation = width > height ? 'landscape' : 'portrait';
+
+                // 第一页创建PDF，后续页添加
+                if (index === 0) {
+                    pdf = new jsPDF({
+                        orientation,
+                        unit: 'px', // 使用像素单位，保持与canvas一致
+                        format: [width, height] // 页面尺寸等于canvas尺寸
+                    });
+                } else {
+                    pdf.addPage([width, height], orientation);
+                }
+
+                // 将canvas绘制到PDF（不缩放，完全填充页面）
+                pdf.addImage(
+                    dataUrl,
+                    'PNG',
+                    0, // x坐标：左上角对齐
+                    0, // y坐标：左上角对齐
+                    width, // 图片宽度等于页面宽度
+                    height // 图片高度等于页面高度
+                );
+            }
+
+            // 下载PDF
+            if (pdf) {
+                pdf.save(`拼好字 - ${Date.now()}.pdf`);
+            }
         });
 
 
@@ -184,25 +391,25 @@
             return /[，。！？…—、；："'‘’]/.test(char);
         }
 
-        document.getElementById('lineHeight').onchange = function() {
+        document.getElementById('lineHeight').onchange = function () {
             config.lineHeight = parseFloat(this.value);
         };
-        document.getElementById('fontSize').onchange = function() {
+        document.getElementById('fontSize').onchange = function () {
             config.fontSize = parseFloat(this.value);
         };
-        document.getElementById('topMargin').onchange = function() {
+        document.getElementById('topMargin').onchange = function () {
             config.textFrame[0] = parseFloat(this.value);
         };
-        document.getElementById('leftMargin').onchange = function() {
+        document.getElementById('leftMargin').onchange = function () {
             config.textFrame[1] = parseFloat(this.value);
         };
-        document.getElementById('rightMargin').onchange = function() {
+        document.getElementById('rightMargin').onchange = function () {
             config.textFrame[2] = parseFloat(this.value);
         };
-        document.getElementById('smartPunctuation').onchange = function() {
+        document.getElementById('smartPunctuation').onchange = function () {
             config.smartPunctuation = this.checked;
         };
-        document.getElementById('showLines').onchange = function() {
+        document.getElementById('showLines').onchange = function () {
             config.showLines = this.checked;
         };
 
@@ -210,8 +417,8 @@
             return new Promise((resolve) => {
                 // 如果图片已经加载完成，直接 resolve
                 if (img.complete) {
-                resolve();
-                return;
+                    resolve();
+                    return;
                 }
                 // 否则等待 onload 事件
                 img.onload = () => resolve();
@@ -219,6 +426,8 @@
         }
 
         async function draw(text_, pageConfig) {
+            page_count++;
+
             console.log(`绘制 ${text_}`);
             text = text_.replace(/——/g, '¨');
             const lineHeight = pageConfig.lineHeight;
@@ -233,10 +442,13 @@
             const lineLeft = pageConfig.lineFrame[1];
             const lineRight = pageConfig.lineFrame[2];
             const background = pageConfig.background;
+
             let canvas = document.createElement('canvas');
             let ctx = canvas.getContext('2d');
+
             // 自动调整 canvas 尺寸
             let backgroundImg = new Image();
+            backgroundImg.crossOrigin = 'anonymous'; // 解决跨域问题
             backgroundImg.src = config.background; // 默认背景图路径
             await waitImageLoad(backgroundImg);
             function resizeCanvas(img) {
@@ -251,8 +463,6 @@
             }
             resizeCanvas(backgroundImg);
             document.getElementById('canvasContainer').appendChild(canvas);
-            // console.log("开始绘制...", pageConfig, "以上");
-            // console.log("当前配置:", pageConfig);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -271,32 +481,29 @@
             for (let line of lines) {
                 // 每行开始时重置x位置
                 x = leftMargin * 2;
-                
+
                 // 处理一行中的每个字符
                 for (let i = 0; i < line.length; i++) {
                     wordCount++;
                     const char = line[i];
-                    
-                    // 处理空格
+
                     if (char === ' ') {
                         x += 10 * 2; // 空格宽度20px
                         continue;
                     }
-                    
-                    // 处理制表符
                     if (char === '\t') {
                         x += 40 * 2; // 制表符宽度80px
                         continue;
                     }
-                    
+
                     // 加载字符图片
                     const { img } = await loadCharImage(char);
-                    
+
                     // 计算字符尺寸
                     const scale = img.height ? (fontSize * 2) / img.height : 1;
                     const charWidth = img.width ? img.width * scale : 35; // 35px占位符
                     const charHeight = fontSize * 2;
-                    
+
                     // 换行处理
                     if (x + charWidth > maxX) {
                         if (smartPunctuation && isPunctuation(char)) {
@@ -305,6 +512,7 @@
                             x = leftMargin * 2;
                             y += lineHeight * 2;
                             currCnt++;
+                            line_count++;
                             console.log(`行数 ${currCnt}`)
                             if (currCnt > lineCount) {
                                 drawLines();
@@ -313,32 +521,33 @@
                             }
                         }
                     }
-                    
+
                     // 绘制字符
                     if (img.width) {
                         ctx.drawImage(img, x, y, charWidth, charHeight);
                         console.log(`绘制字符: ${char} at (${x}, ${y})`);
                     }
-                    
+
                     // 更新x位置
                     x += charWidth;
-                    
+
                     // 中英文间隔处理
                     if (i + 1 < line.length) {
                         const nextChar = line[i + 1];
                         if (!isPunctuation(nextChar)) {
-                            if ((isChinese(char) && isWestern(nextChar)) || 
+                            if ((isChinese(char) && isWestern(nextChar)) ||
                                 (isWestern(char) && isChinese(nextChar))) {
                                 x += 5 * 2; // 10px间隔
                             }
                         }
                     }
                 }
-                
+
                 // 一行结束，换行
                 y += lineHeight * 2;
                 currCnt++;
                 wordCount++;
+                line_count++;
                 console.log(`行数 ${currCnt}`)
                 if (currCnt > lineCount) {
                     drawLines();
@@ -378,28 +587,30 @@
         function loadCharImage(char) {
             return new Promise(resolve => {
                 const img = new Image();
-                
+                img.crossOrigin = 'anonymous'; // 解决跨域问题
                 // 特殊字符对照表
                 if (char === '¨') {
-                    img.src = `handwriting_chars/_pozhe.png`;
+                    img.src = `${folder}/_pozhe.png`;
                 } else if (char === '#') {
-                    img.src = `handwriting_chars/_hash.png`;
+                    img.src = `${folder}/_hash.png`;
                 } else if (char === '?') {
-                    img.src = `handwriting_chars/_quest.png`;
+                    img.src = `${folder}/_quest.png`;
                 } else if (char === '/') {
-                    img.src = `handwriting_chars/_slash.png`;
+                    img.src = `${folder}/_slash.png`;
                 } else if (char === ':') {
-                    img.src = `handwriting_chars/_colon.png`;
+                    img.src = `${folder}/_colon.png`;
                 } else if (char === '.') {
-                    img.src = `handwriting_chars/dot.png`;
+                    img.src = `${folder}/dot.png`;
                 } else if (/[A-Z]/.test(char)) {
-                    img.src = `handwriting_chars/+c${char}.png`;
+                    img.src = `${folder}/+c${char}.png`;
                 } else {
-                    img.src = `/Users/apple/Desktop/PinHaoZi/handwriting_chars/${char}.png`;
+                    img.src = `${folder}/${char}.png`;
                 }
-                
+
                 img.onload = () => resolve({ char, img });
                 img.onerror = () => {
+                    missing_count++;
+                    missing_chars.set(char, (missing_chars.get(char) || 0) + 1);
                     console.warn("缺少字图:", char);
                     // 返回空图占位
                     resolve({ char, img: new Image() });
@@ -407,7 +618,23 @@
             });
         }
 
-        draw('拼好字——The quick brown fox jumps over the lazy dog and runs away.\n滚滚长江东逝水，浪花淘尽英雄。\n是非成败转头空。\n青山依旧在，几度夕阳红。\n白发渔樵江渚上，惯看秋月春风。\n一壶浊酒喜相逢。\n古今多少事，都付笑谈中。', config); // 初始绘制空内容
+        function displayCount() {
+            document.getElementById('page').innerText = `${page_count}`;
+            document.getElementById('lineCount').innerText = `${line_count}`;
+            document.getElementById('wordCount').innerText = `${document.getElementById('textInput').value.length}`;
+            document.getElementById('missingCount').innerText = `${missing_count} / ${missing_chars.size}`;
+            const sorted = Array.from(missing_chars.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([char, count]) => `${char}(${count})`)
+                .join(' ');
+            const sorted2 = Array.from(missing_chars.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([char, count]) => `${char}`)
+                .join('');
+            document.getElementById('missingChars').innerText = sorted + '\n' + sorted2;
+        }
+
+        draw('', config);
     </script>
 </body>
 
