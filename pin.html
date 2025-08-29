@@ -1,294 +1,985 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>拼好字</title>
+    <title>拼好字 Demo (Canvas)</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            background-color: #f4f7f6;
+        /* 全局样式 */
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            padding: 0;
         }
 
-        .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        p {
-            color: #666;
-            margin-bottom: 25px;
-        }
-
-        #inputText {
-            width: calc(100% - 20px);
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1.1em;
-            resize: vertical;
-            min-height: 100px;
-            box-sizing: border-box;
-        }
-
-        .output-area {
-            border: 1px dashed #ccc;
-            padding: 15px;
-            min-height: 135px;
-            max-height: 500px;
-            overflow-y: auto;
-            border-radius: 5px;
-            background-color: white;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: row;
+            gap: 30px;
+            margin: 0;
+            background: #f8fafc;
+            color: #334155;
+            min-height: 100vh;
+            padding: 20px;
         }
 
-        .output-area img {
-            height: 35px;
-            width: auto;
-            vertical-align: middle;
-            background-color: #fff;
-            object-fit: contain;
+        /* 左侧控制面板 - 美化 */
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            bottom: 20px;
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            padding: 24px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 5px 10px rgba(0, 0, 0, 0.03);
+            min-width: 250px;
+            overflow-y: auto;
+            z-index: 10;
+            border: 1px solid #e2e8f0;
         }
 
-        /* 针对无法找到图片时的样式 */
-        .output-area img:not([src*="."])::before {
-            content: attr(alt); /* 显示alt文本 */
-            display: block;
-            width: 35px;
-            height: 35px;
-            line-height: 35px;
-            text-align: center;
-            background-color: #ffe0b2; /* 浅橙色背景 */
-            color: #e65100; /* 深橙色文字 */
-            font-size: 0.8em;
-            border: 1px dashed #e65100;
-        }
-        
-        .output-area .missing-char {
-            font-family: 'Font1076', sans-serif;
-            font-weight: bold;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            width: 20px;
-            height: 35px;
-            background-color: #fff8ed;
-            color: #e65100;
-            font-size: 1.4em;
-            /* border: 1px dashed #e65100; */
-            box-sizing: border-box;
-            /* margin-right: 5px; */
+        #controls h2 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
         }
 
-        .line-break-spacer {
-            width: 100%;
-            height: 10px;
-        }
-
-        .stats {
-            margin-top: 15px;
-            font-size: 0.9em;
-            color: #555;
-            padding: 5px;
-            border-top: 1px solid #eee;
-        }
-        
-        .action-buttons {
-            margin-top: 20px;
+        #controls label {
+            font-size: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 4px;
+            color: #475569;
+            font-weight: 500;
         }
 
-        .action-buttons button {
-            padding: 10px 15px;
-            font-size: 1em;
-            border-radius: 5px;
-            cursor: pointer;
+        #textInput {
+            min-height: 500px;
+        }
+
+        #controls input[type="number"],
+        #controls textarea {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            background: #ffffff;
+            transition: all 0.2s ease;
+            color: #334155;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        #controls input[type="number"]:focus,
+        #controls textarea:focus {
+            outline: none;
+            border-color: #733bf6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        #controls textarea {
+            resize: none;
+            /* min-height: 100px; */
+        }
+
+        #controls button {
+            padding: 12px 16px;
             border: none;
+            border-radius: 10px;
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
             color: white;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
         }
 
-        #exportButton {
-            background-color: #4CAF50;
+        #controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(79, 70, 229, 0.25);
         }
 
-        #exportButton:hover {
-            background-color: #45a049;
+        #controls button:active {
+            transform: translateY(0);
         }
 
-        #missingCharsOutput {
-            margin-top: 15px;
-            padding: 10px;
-            border: 1px dashed #e65100;
-            border-radius: 5px;
-            background-color: #fff3e0;
+        /* 右侧信息面板 - 美化 */
+        #info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 24px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 5px 10px rgba(0, 0, 0, 0.03);
+            z-index: 10;
+            border: 1px solid #e2e8f0;
+        }
+
+        #info div:first-child {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        #info>div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        #info>div:last-child {
+            border-bottom: none;
+        }
+
+        #info div div {
+            font-weight: 500;
+            color: #475569;
+        }
+
+        #missingChars {
+            display: block !important;
             word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 4px;
+            font-size: 13px;
         }
 
-        #exportImageButton {
-            background-color: #2196F3; /* 蓝色 */
-            margin-left: 10px;
+        /* 画布区域 */
+        canvas {
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
         }
 
-        #exportImageButton:hover {
-            background-color: #1976D2;
+        #canvasContainer {
+            overflow-y: auto;
+            overflow-x: auto;
+            right: 0px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            gap: 20px;
+            padding-left: 380px;
+            padding-right: 300px;
+            padding-top: 20px;
+            padding-bottom: 40px;
+        }
+
+        /* 文件上传样式美化 */
+        input[type="file"] {
+            /* 核心可修改属性：内边距、边框、圆角、字体 */
+            padding: 10px 14px;
+            border: 2px solid #935cff;
+            /* 紫色主题边框（中等浓度） */
+            border-radius: 8px;
+            /* 圆角优化，匹配现代UI */
+            font-size: 14px;
+            color: #5a2fc2;
+            /* 深紫色文本，提升可读性 */
+            background-color: #f9f5ff;
+            /* 淡紫色背景，弱化原生灰调 */
+
+            /* 交互相关：光标、过渡动画 */
+            cursor: pointer;
+            transition: all 0.25s ease;
+            /* 状态变化平滑过渡 */
+
+            /* 清除部分浏览器的默认内边距/间距 */
+            margin: 0;
+            outline: none;
+        }
+
+        /* 2. 悬停状态：增强交互反馈 */
+        input[type="file"]:hover {
+            border-color: #7b42c9;
+            /* 主紫色边框（加深） */
+            background-color: #f0e6ff;
+            /* 淡紫色背景（加深） */
+            box-shadow: 0 2px 6px rgba(123, 66, 201, 0.15);
+            /* 紫色系阴影，提升层次感 */
+        }
+
+        /* 3. 聚焦状态：提升可访问性（键盘操作时可见） */
+        input[type="file"]:focus {
+            border-color: #b388ff;
+            /* 浅紫色边框（高亮） */
+            box-shadow: 0 0 0 3px rgba(179, 136, 255, 0.3);
+            /* 紫色聚焦光晕，明确当前焦点 */
+        }
+
+        input[type="file"]::file-selector-text {
+            color: #6a40a3;
+            /* 中紫色文本（区分按钮与文件名） */
+            font-weight: 500;
+            /* 文件名加粗，提升识别度 */
+            margin-left: 8px;
+            /* 与“选择文件”按钮区拉开间距 */
+        }
+
+        /* 5. 针对“选择文件”按钮本身的样式（兼容性极低，仅作补充） */
+        /* 注：仅 Chrome/Safari 支持 ::-webkit-file-upload-button 伪元素 */
+        input[type="file"]::-webkit-file-upload-button {
+            padding: 8px 16px;
+            border: none;
+            /* 清除默认按钮边框 */
+            border-radius: 6px;
+            /* 按钮独立圆角 */
+            background-color: #7b42c9;
+            /* 主紫色背景（按钮核心色） */
+            color: white;
+            /* 白色文本，高对比度 */
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.25s ease;
+        }
+
+        /* 6. “选择文件”按钮的悬停状态（仅 Chrome/Safari 生效） */
+        input[type="file"]::-webkit-file-upload-button:hover {
+            background-color: #8d54d1;
+            /* 亮紫色背景（按钮hover） */
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 10px 16px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #64748b;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .file-upload-label:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        /* 复选框样式美化 */
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        input[type="checkbox"]:checked::before {
+            content: "✓";
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .accordion {
+            min-height: 45px;
+            border-radius: 8px;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            min-height: 45px;
+            cursor: pointer;
+            padding: 10px 8px;
+            font-weight: 600;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .accordion-header:hover {
+            background: #e0e7ef;
+        }
+
+        .accordion-arrow {
+            font-size: 13px;
+            transition: transform 0.2s;
+        }
+
+        .accordion.open .accordion-arrow {
+            transform: rotate(90deg);
+        }
+
+        .accordion.open {
+            min-height: 430px;
+        }
+
+        .accordion-body {
+            display: none;
+            padding: 8px 8px 8px 8px;
+            background: #fff;
+            border-top: 1px solid #e2e8f0;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .accordion.open .accordion-body {
+            display: flex;
+        }
+
+        /* 下拉选择框样式 */
+        .preset-select-container {
+            display: flex;
+            align-items: center;
+        }
+
+        /* 标签文本样式 */
+        .preset-select-label {
+            font-size: 14px;
+            font-weight: 500;
+            /* 中等加粗，突出标签层级 */
+            color: #333333;
+            white-space: nowrap;
+            /* 防止标签换行 */
+        }
+
+        /* 下拉选择器样式 */
+        #presetSelect {
+            margin-left: 12px;
+            /* 调整左侧间距，优化视觉比例 */
+            flex: 1;
+            /* 占满剩余空间 */
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            /* 浅灰色边框，避免刺眼 */
+            border-radius: 6px;
+            font-size: 14px;
+            color: #444444;
+            background-color: #fafafa;
+            appearance: none;
+            /* 清除默认下拉箭头 */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            /* 自定义下拉箭头（通过背景图实现） */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M8 11l4-4H4l4 4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            transition: all 0.3s ease;
+            /* 统一过渡动画 */
+            cursor: pointer;
+        }
+
+        /* 下拉选择器聚焦效果（提升可访问性） */
+        #presetSelect:focus {
+            outline: none;
+            border-color: #8c40ff;
+            /* 高亮边框色 */
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+            /* 聚焦光晕 */
+            background-color: #ffffff;
+        }
+
+        /* 下拉选择器选项样式 */
+        #presetSelect option {
+            padding: 8px 12px;
+            background-color: #ffffff;
+            color: #333333;
+            font-size: 14px;
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>拼好字</h1>
-        <p>在这里输入文字，下面会显示你的手写字迹。</p>
-        <textarea id="inputText" placeholder="请输入文字..." rows="5"></textarea>
-        <div id="outputArea" class="output-area"></div>
-        <div class="action-buttons">
-            <div id="stats" class="stats"></div>
-            <button id="exportButton">导出缺失字符</button>                <button id="exportImageButton">导出预览区图片</button>
+    <div id="controls">
+        <h2>拼好字设置</h2>
+        <!-- 预设选择下拉框 -->
+        <div class="preset-select-container">
+            <label class="preset-select-label">
+                选择预设
+            </label>
+            <select id="presetSelect">
+                <option value="kokuyo-line-front">单栏正面（正反交替）</option>
+                <option value="kokuyo-line-back">单栏反面（正反交替）</option>
+                <option value="kokuyo-line-front-2-columns">双栏正面（正反交替）</option>
+                <option value="kokuyo-line-back-2-columns">双栏反面（正反交替）</option>
+            </select>
         </div>
-        <div id="missingCharsOutput"></div>
+        <textarea id="textInput" rows="5" placeholder="输入文字。用 <[N]> 格式设置额外的 margin（相对于预设左 margin 的数值）。"></textarea>
+        <!-- 手风琴区域开始 -->
+        <div class="accordion">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                <span>排版参数</span>
+                <span class="accordion-arrow">▶</span>
+            </div>
+            <div class="accordion-body">
+                <label style="color: red;">[DEPRECATED] 请至 configs.js 修改</label>
+                <label>背景图<input type="file" id="bgUpload" accept="image/*"></label>
+                <label>行距<input type="number" id="lineHeight" value="35.2"></label>
+                <label>字号<input type="number" id="fontSize" value="32"></label>
+                <label>上边界<input type="number" id="topMargin" value="150"></label>
+                <label>左边界<input type="number" id="leftMargin" value="80"></label>
+                <label>右边界<input type="number" id="rightMargin" value="750"></label>
+            </div>
+        </div>
+        <!-- 手风琴区域结束 -->
+        <label><input type="checkbox" id="smartPunctuation" checked> 智能标点处理</label>
+        <label><input type="checkbox" id="showLines" checked> 显示横线</label>
+        <button id="renderBtn">生成预览</button>
+        <button id="saveBtn">导出图片</button>
+        <button id="countBtn" onclick="displayCount()">重新统计</button>
     </div>
+    <div id="info">
+        页数<div id="page"></div>
+        行数<div id="lineCount"></div>
+        字符数<div id="wordCount"></div>
+        缺失字符数<div id="missingCount"></div>
+        缺失字符<div id="missingChars"></div>
+    </div>
+    <div id="canvasContainer"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="configs.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const inputText = document.getElementById('inputText');
-            const outputArea = document.getElementById('outputArea');
-            const exportButton = document.getElementById('exportButton');
-            const missingCharsOutput = document.getElementById('missingCharsOutput');
-            const stats = document.getElementById('stats');
+        let config = kokuyo_line_front;
+        folder = "output_chars_ds";
+        function initInputs() {
+            document.getElementById('lineHeight').value = config.lineHeight;
+            document.getElementById('fontSize').value = config.fontSize;
+            document.getElementById('topMargin').value = config.textFrame[0][0];
+            document.getElementById('leftMargin').value = config.textFrame[0][1];
+            document.getElementById('rightMargin').value = config.textFrame[0][2];
+            document.getElementById('smartPunctuation').checked = config.smartPunctuation;
+            document.getElementById('showLines').checked = config.showLines;
+            document.getElementById('presetSelect').value = config.name;
+        }
+        initInputs();
 
-            function renderText() {
-                const text = inputText.value.replace(/——/g, '¨');
-                outputArea.innerHTML = '';
-                const missingChars = new Set();
-                
-                if (text.length === 0) {
-                    stats.textContent = '';
-                    missingCharsOutput.textContent = '';
-                    return;
+        // 背景上传
+        document.getElementById('bgUpload').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    config.background = evt.target.result;
+                    startDrawing();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        let page_count = 0;
+        let line_count = 0;
+        let missing_count = 0;
+        let missing_chars = new Map(); // 改为 Map
+
+        async function startDrawing() {
+            page_count = 0;
+            line_count = 0;
+            word_count = 0;
+            missing_count = 0;
+            missing_chars.clear(); // Map 清空
+            document.getElementById('canvasContainer').innerHTML = ''; // 清空画布容器
+            const text = document.getElementById('textInput').value;
+            await draw(text, config);
+            displayCount();
+        }
+
+        document.getElementById('renderBtn').onclick = () => {
+            startDrawing();
+        };
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            // 获取容器内所有canvas元素
+            const canvases = document.querySelectorAll('#canvasContainer canvas');
+            let pdf;
+
+            for (const [index, canvas] of canvases.entries()) {
+
+                // 处理跨域问题并转为图片数据
+                const dataUrl = canvas.toDataURL('image/png');
+
+                // 获取canvas实际尺寸
+                const { width, height } = canvas;
+                // 根据canvas尺寸决定PDF方向和尺寸
+                const orientation = width > height ? 'landscape' : 'portrait';
+
+                // 第一页创建PDF，后续页添加
+                if (index === 0) {
+                    pdf = new jsPDF({
+                        orientation,
+                        unit: 'px', // 使用像素单位，保持与canvas一致
+                        format: [width, height] // 页面尺寸等于canvas尺寸
+                    });
+                } else {
+                    pdf.addPage([width, height], orientation);
                 }
 
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    
-                    if (char === '\n') {
-                        const lineBreakSpacer = document.createElement('div');
-                        lineBreakSpacer.className = 'line-break-spacer';
-                        outputArea.appendChild(lineBreakSpacer);
-                        continue;
-                    }
-                    
-                    const img = document.createElement('img');                    
-                    // img.crossOrigin = 'anonymous'; // 新增：解决跨域图片污染问题
+                // 将canvas绘制到PDF（不缩放，完全填充页面）
+                pdf.addImage(
+                    dataUrl,
+                    'PNG',
+                    0, // x坐标：左上角对齐
+                    0, // y坐标：左上角对齐
+                    width, // 图片宽度等于页面宽度
+                    height // 图片高度等于页面高度
+                );
+            }
 
-                    img.title = char;
+            // 下载PDF
+            if (pdf) {
+                pdf.save(`拼好字 - ${Date.now()}.pdf`);
+            }
+        });
+
+
+        // 判断字符是否为中文
+        function isChinese(char) {
+            return /[\u4e00-\u9fa5]/.test(char);
+        }
+
+        // 判断字符是否为西文或数字
+        function isWestern(char) {
+            return /[a-zA-Z0-9]/.test(char);
+        }
+
+        // 判断是否为标点符号
+        function isPunctuation(char) {
+            return /[，。！？\?\.…—、；："'‘’“”《》（）\(\)【】\*\[\]]/.test(char);
+        }
+
+        document.getElementById('lineHeight').onchange = function () {
+            config.lineHeight = parseFloat(this.value);
+        };
+        document.getElementById('fontSize').onchange = function () {
+            config.fontSize = parseFloat(this.value);
+        };
+        document.getElementById('topMargin').onchange = function () {
+            config.textFrame[0][0] = parseFloat(this.value);
+        };
+        document.getElementById('leftMargin').onchange = function () {
+            config.textFrame[0][1] = parseFloat(this.value);
+        };
+        document.getElementById('rightMargin').onchange = function () {
+            config.textFrame[0][2] = parseFloat(this.value);
+        };
+        document.getElementById('smartPunctuation').onchange = function () {
+            config.smartPunctuation = this.checked;
+        };
+        document.getElementById('showLines').onchange = function () {
+            config.showLines = this.checked;
+        };
+        document.getElementById('presetSelect').addEventListener('change', function () {
+            // 切换预设
+            let val = this.value;
+            if (config_dict[val]) {
+                config = config_dict[val];
+                startDrawing();
+            }
+        });
+
+        function waitImageLoad(img) {
+            return new Promise((resolve) => {
+                // 如果图片已经加载完成，直接 resolve
+                if (img.complete) {
+                    resolve();
+                    return;
+                }
+                // 否则等待 onload 事件
+                img.onload = () => resolve();
+            });
+        }
+
+        switchPage = true;
+        async function draw(text_, pageConfig) {
+            page_count++;
+
+            nextPageConfig = config_dict[pageConfig.nextPage] || pageConfig;
+
+            const column = pageConfig.columns || 1;
+            const textFrames = pageConfig.textFrame; // 数组，每列一个
+            const lineHeight = pageConfig.lineHeight;
+            const fontSize = pageConfig.fontSize;
+            const smartPunctuation = pageConfig.smartPunctuation;
+            const showLines = pageConfig.showLines;
+            const lineCount = pageConfig.lineCount;
+            const lineTop = pageConfig.lineFrame[0];
+            const lineLeft = pageConfig.lineFrame[1];
+            const lineRight = pageConfig.lineFrame[2];
+            const background = pageConfig.background;
+            console.log(`开始绘制第 ${page_count} 页，配置:`, pageConfig);
+
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+
+            // 自动调整 canvas 尺寸
+            let backgroundImg = new Image();
+            backgroundImg.crossOrigin = 'anonymous'; // 解决跨域问题
+            backgroundImg.src = pageConfig.background; // 默认背景图路径
+            await waitImageLoad(backgroundImg);
+            function resizeCanvas(img) {
+                const targetWidth = 800;
+                const scale = targetWidth / img.width;
+                const targetHeight = Math.round(img.height * scale);
+
+                canvas.width = targetWidth * 2;   // 2x 高清
+                canvas.height = targetHeight * 2;
+                canvas.style.width = targetWidth + "px";
+                canvas.style.height = targetHeight + "px";
+            }
+            resizeCanvas(backgroundImg);
+            document.getElementById('canvasContainer').appendChild(canvas);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (backgroundImg) {
+                ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+            }
+
+            // 多列布局参数
+            let textBak = text_;
+            // 支持多平台换行
+            const lines = textBak.split(/\r?\n/);
+            let wordCount = 0;
+            let lineIdxInText = 0; // 当前处理到的原始文本行号
+
+            let currentColumn = 0;
+            let currentLineInColumn = 0;
+            let totalLinesThisPage = 0;
+
+            // 计算每列的起始y
+            let columnY0 = [];
+            for (let c = 0; c < column; c++) {
+                columnY0[c] = textFrames[c][0] * 2;
+            }
+
+            // 记录每列当前y
+            let columnY = columnY0.slice();
+
+            // 记录每列当前x
+            let columnX = [];
+            for (let c = 0; c < column; c++) {
+                columnX[c] = textFrames[c][1] * 2;
+            }
+
+            // 记录每列右边界
+            let columnMaxX = [];
+            for (let c = 0; c < column; c++) {
+                columnMaxX[c] = textFrames[c][2] * 2;
+            }
+
+            // 记录每列当前行数
+            let columnLineCount = new Array(column).fill(0);
+
+            // 处理每一行文本
+            while (lineIdxInText < lines.length) {
+                // 当前列已满，切到下一个
+                // if (columnLineCount[currentColumn] >= lineCount) {
+                //     currentColumn++;
+                //     if (currentColumn >= column) {
+                //         // 所有列都满，换页
+                //         drawLines();
+                //         draw(textBak, nextPageConfig);
+                //         return;
+                //     }
+                // }
+
+                // 当前列参数
+                let thisLineLeftMargin = textFrames[currentColumn][1];
+                let thisLineRightMargin = textFrames[currentColumn][2];
+                let thisLineTopMargin = textFrames[currentColumn][0];
+
+                let x = thisLineLeftMargin * 2;
+                let y = columnY[currentColumn];
+
+                let line = lines[lineIdxInText];
+
+                // margin 标记处理（与原逻辑一致）
+                let marginSwitches = [];
+                let regex = /<\[([+-]?\d+)\]>/g;
+                let match;
+                let pureLine = "";
+                let lastIdx = 0;
+                while ((match = regex.exec(line)) !== null) {
+                    pureLine += line.slice(lastIdx, match.index);
+                    marginSwitches.push({ idx: pureLine.length, delta: parseInt(match[1]), rawIdx: match.index });
+                    lastIdx = match.index + match[0].length;
+                }
+                pureLine += line.slice(lastIdx);
+
+                let switchIdx = 0;
+                let rawIdx = 0;
+                for (let i = 0; i < pureLine.length; i++) {
+                    // 检查是否需要切换 margin
+                    if (switchIdx < marginSwitches.length && i === marginSwitches[switchIdx].idx) {
+                        thisLineLeftMargin = textFrames[currentColumn][1] + marginSwitches[switchIdx].delta;
+                        x = thisLineLeftMargin * 2;
+                        let markLen = `<[${marginSwitches[switchIdx].delta}]>`.length;
+                        textBak = textBak.slice(markLen);
+                        rawIdx += markLen;
+                        switchIdx++;
+                    }
+                    while (
+                        switchIdx < marginSwitches.length &&
+                        rawIdx === marginSwitches[switchIdx].rawIdx
+                    ) {
+                        let markLen = `<[${marginSwitches[switchIdx].delta}]>`.length;
+                        textBak = textBak.slice(markLen);
+                        rawIdx += markLen;
+                        thisLineLeftMargin = textFrames[currentColumn][1] + marginSwitches[switchIdx].delta;
+                        x = thisLineLeftMargin * 2;
+                        switchIdx++;
+                    }
+
+                    wordCount++;
+                    const char = pureLine[i];
 
                     if (char === ' ') {
-                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 透明 GIF
-                        img.alt = 'Space';
-                        img.style.width = '5px'; // 可以调整空格的宽度
-                        img.style.height = '35px'; // 与其他字保持相同高度
-                        img.style.border = 'none'; // 移除边框
-                        img.style.backgroundColor = 'transparent'; // 透明背景
-                        img.style.marginRight = '5px'; // 稍微右边距，模拟字间距
-                    } else if (char === '\t') {
-                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 透明 GIF
-                        img.alt = 'Space';
-                        img.style.width = '35px'; // 可以调整空格的宽度
-                        img.style.height = '35px'; // 与其他字保持相同高度
-                        img.style.border = 'none'; // 移除边框
-                        img.style.backgroundColor = 'transparent'; // 透明背景
-                        img.style.marginRight = '5px'; // 稍微右边距，模拟字间距
-                    } else if (char === '¨') {
-                        img.src = `handwriting_chars/_pozhe.png`
-                    } else if (char === '#') {
-                        img.src = `handwriting_chars/_hash.png`;
-                    } else if (char === '?') {
-                        img.src = `handwriting_chars/_quest.png`;
-                    } else if (char === '/') {
-                        img.src = `handwriting_chars/_slash.png`;
-                    } else if (char === ':') {
-                        img.src = `handwriting_chars/_colon.png`;
-                    } else if (char === '.') {
-                        img.src = `handwriting_chars/dot.png`;
-                    } else if (/[A-Z]/.test(char)) {
-                        img.src = `handwriting_chars/+c${char}.png`;
-                    } else {
-                        img.src = `handwriting_chars/${char}.png`;
-                        img.alt = `找不到字：${char}.png`; // 当图片加载失败时显示此文本
-                        img.title = char; // 鼠标悬停时显示字符
-                        img.onerror = function() {
-                            // 当图片加载失败时，用一个占位符来显示原始字符，帮助调试
-                            this.alt = `${char}`;
-                            this.style.width = '20px'; 
-                            this.style.height = '35px'; // 默认高度
-                            this.style.backgroundColor = '#ffe0b2'; // 浅橙色背景
-                            this.style.color = '#e65100'; // 深橙色文字
-                            // this.style.border = '1px dashedrgb(255, 239, 231)'; // 虚线边框
-                            this.style.textAlign = 'center';
-                            this.style.lineHeight = '35px'; // 垂直居中文字
-                            this.style.fontSize = '1.2em';
-                            this.className = 'missing-char'; // 添加一个类名用于样式
-                            this.src = ''; // 清除错误的src，防止浏览器继续尝试加载
-                        };
+                        x += 10 * 2;
+                        textBak = textBak.slice(1);
+                        rawIdx += 1;
+                        continue;
                     }
-                    outputArea.appendChild(img);
+                    if (char === '\t') {
+                        x += 40 * 2;
+                        textBak = textBak.slice(1);
+                        rawIdx += 1;
+                        continue;
+                    }
+
+                    // 加载字符图片
+                    const { img } = await loadCharImage(char);
+
+                    // 计算字符尺寸
+                    const scale = img.height ? (fontSize * 2) / img.height : 1;
+                    const charWidth = img.width ? img.width * scale : 35;
+                    const charHeight = fontSize * 2;
+
+                    // 换行处理
+                    if (x + charWidth > columnMaxX[currentColumn]) {
+                        if (smartPunctuation && isPunctuation(char)) {
+                            // do nothing, just skip this char
+                        } else {
+                            x = thisLineLeftMargin * 2;
+                            y += lineHeight * 2;
+                            columnY[currentColumn] = y;
+                            columnLineCount[currentColumn]++;
+                            totalLinesThisPage++;
+                            if (columnLineCount[currentColumn] > lineCount) {
+                                console.log(`688 - 列 ${currentColumn} 满，切换列 ${columnLineCount[currentColumn]}`);
+                                currentColumn++;
+                                if (currentColumn >= column) {
+                                    drawLines();
+                                    draw(textBak, nextPageConfig);
+                                    return;
+                                }
+                                // 切换到新列
+                                x = textFrames[currentColumn][1] * 2;
+                                y = columnY0[currentColumn];
+                                thisLineLeftMargin = textFrames[currentColumn][1];
+                                thisLineRightMargin = textFrames[currentColumn][2];
+                                thisLineTopMargin = textFrames[currentColumn][0];
+                            }
+                        }
+                    }
+
+                    // 绘制字符
+                    if (img.width) {
+                        ctx.drawImage(img, x, y, charWidth, charHeight);
+                    }
+
+                    x += charWidth;
+
+                    // 中英文间隔处理
+                    if (i + 1 < pureLine.length) {
+                        const nextChar = pureLine[i + 1];
+                        if (!isPunctuation(nextChar)) {
+                            if ((isChinese(char) && isWestern(nextChar)) ||
+                                (isWestern(char) && isChinese(nextChar))) {
+                                x += 5 * 2;
+                            }
+                        }
+                    }
+
+                    // 每画一个字符，删掉 textBak 的第一个字符
+                    textBak = textBak.slice(1);
+                    rawIdx += 1;
+                }
+
+                // 一行结束，换行
+                y += lineHeight * 2;
+                columnY[currentColumn] = y;
+                columnLineCount[currentColumn]++;
+                totalLinesThisPage++;
+
+                // 行尾同步删掉换行符
+                if (textBak[0] === '\r') textBak = textBak.slice(1);
+                if (textBak[0] === '\n') textBak = textBak.slice(1);
+
+                lineIdxInText++;
+
+                // 换页判断：渲染完一行后再判断
+                if (columnLineCount[currentColumn] > lineCount) {
+                    console.log(`742 - 列 ${currentColumn} 满，切换列 ${columnLineCount[currentColumn]}`);
+                    currentColumn++;
+                    if (currentColumn >= column) {
+                        drawLines();
+                        draw(textBak, nextPageConfig);
+                        return;
+                    }
                 }
             }
 
-            inputText.addEventListener('input', renderText);
-            
-            exportButton.addEventListener('click', () => {
-                outputArea.scrollTop = outputArea.scrollHeight;
-
-                const missingCharsSet = new Set(Array.from(document.querySelectorAll('.missing-char')).map(el => el.title));
-                const missingList = Array.from(missingCharsSet).join('');
-                
-                if (missingList.length === 0) {
-                    missingCharsOutput.textContent = '当前没有缺失的字迹';
-                } else {
-                    missingCharsOutput.textContent = `缺失字迹: ${missingList}`;
+            function drawLines() {
+                if (showLines) {
+                    ctx.strokeStyle = pageConfig.lineColor;
+                    ctx.lineWidth = pageConfig.lineWidth;
+                    let lineY = lineTop * 2;
+                    for (let i = 0; i < lineCount; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(lineLeft * 2, lineY);
+                        ctx.lineTo(lineRight * 2, lineY);
+                        ctx.stroke();
+                        lineY += lineHeight * 2;
+                    }
+                    // 绘制额外的线条
+                    for (let [width, color, left, top, right, bottom] of pageConfig.additional) {
+                        // console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = width;
+                        ctx.beginPath();
+                        ctx.moveTo(left * 2, top * 2);
+                        ctx.lineTo(right * 2, bottom * 2);
+                        ctx.stroke();
+                    }
                 }
-                stats.textContent = `总字符数: ${inputText.value.length}，缺失字迹: ${document.querySelectorAll('.missing-char').length}/${missingList.length}`;
-            });
+            }
+            drawLines();
+        }
 
-        // 新增：导出图片功能
-            exportImageButton.addEventListener('click', () => {
-                html2canvas(outputArea, {
-                    useCORS: true, // 如果图片来自不同源，需要设置此项
-                    allowTaint: true,
-                    scale: 2 // 可以增加分辨率
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = 'handwriting.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                });
-            });
+        // 封装一个加载单个字图片的函数
+        function loadCharImage(char) {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous'; // 解决跨域问题
+                // 特殊字符对照表
+                if (char === '¨') {
+                    img.src = `${folder}/_pozhe.png`;
+                } else if (char === '#') {
+                    img.src = `${folder}/_hash.png`;
+                } else if (char === '?') {
+                    img.src = `${folder}/_quest.png`;
+                } else if (char === '/') {
+                    img.src = `${folder}/_slash.png`;
+                } else if (char === ':') {
+                    img.src = `${folder}/_colon.png`;
+                } else if (char === '.') {
+                    img.src = `${folder}/dot.png`;
+                } else if (/[A-Z]/.test(char)) {
+                    img.src = `${folder}/+c${char}.png`;
+                } else {
+                    img.src = `${folder}/${char}.png`;
+                }
 
-            
-            // Initial render
-            renderText();
-        });
+                img.onload = () => resolve({ char, img });
+                img.onerror = () => {
+                    missing_count++;
+                    missing_chars.set(char, (missing_chars.get(char) || 0) + 1);
+                    console.warn("缺少字图:", char);
+                    // 返回空图占位
+                    resolve({ char, img: new Image() });
+                };
+            });
+        }
+
+        function displayCount() {
+            document.getElementById('page').innerText = `${page_count}`;
+            document.getElementById('lineCount').innerText = `${line_count}`;
+            document.getElementById('wordCount').innerText = `${document.getElementById('textInput').value.length}`;
+            document.getElementById('missingCount').innerText = `${missing_count} / ${missing_chars.size}`;
+            const sorted = Array.from(missing_chars.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([char, count]) => `${char}(${count})`)
+                .join(' ');
+            const sorted2 = Array.from(missing_chars.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([char, count]) => `${char}`)
+                .join('');
+            document.getElementById('missingChars').innerText = sorted + '\n' + sorted2;
+        }
+
+        draw('', config);
+
+        function toggleAccordion(header) {
+            const accordion = header.parentElement;
+            accordion.classList.toggle('open');
+        }
     </script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </body>
+
 </html>

@@ -1,10 +1,9 @@
-handwriting_chars
 logs
 test_chars
 test.bash
 test.py
 trash
-*.png
+# *.png
 output
 raw
 cropjb1
@@ -12,3 +11,5 @@ cropjb1
 node_modules
 useless
 .DS_Store
+output_chars
+output_chars_ds

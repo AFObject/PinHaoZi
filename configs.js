@@ -1,7 +1,7 @@
 const kokuyo_line_front = {
     name: "kokuyo-line-front",
     columns: 1,
-    textFrame: [[150, 80, 750]], // 上边界, 左边界, 右边界
+    textFrame: [[150, 80, 770]], // 上边界, 左边界, 右边界
     fontSize: 32,
     lineHeight: 35.2,
     lineFrame: [178, 63, 776],

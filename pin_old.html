@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拼好字</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        #inputText {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1.1em;
+            resize: vertical;
+            min-height: 100px;
+            box-sizing: border-box;
+        }
+
+        .output-area {
+            border: 1px dashed #ccc;
+            padding: 15px;
+            min-height: 135px;
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 5px;
+            background-color: white;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .output-area img {
+            height: 35px;
+            width: auto;
+            vertical-align: middle;
+            background-color: #fff;
+            object-fit: contain;
+        }
+
+        /* 针对无法找到图片时的样式 */
+        .output-area img:not([src*="."])::before {
+            content: attr(alt); /* 显示alt文本 */
+            display: block;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
+            text-align: center;
+            background-color: #ffe0b2; /* 浅橙色背景 */
+            color: #e65100; /* 深橙色文字 */
+            font-size: 0.8em;
+            border: 1px dashed #e65100;
+        }
+        
+        .output-area .missing-char {
+            font-family: 'Font1076', sans-serif;
+            font-weight: bold;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 20px;
+            height: 35px;
+            background-color: #fff8ed;
+            color: #e65100;
+            font-size: 1.4em;
+            /* border: 1px dashed #e65100; */
+            box-sizing: border-box;
+            /* margin-right: 5px; */
+        }
+
+        .line-break-spacer {
+            width: 100%;
+            height: 10px;
+        }
+
+        .stats {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #555;
+            padding: 5px;
+            border-top: 1px solid #eee;
+        }
+        
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .action-buttons button {
+            padding: 10px 15px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            color: white;
+        }
+
+        #exportButton {
+            background-color: #4CAF50;
+        }
+
+        #exportButton:hover {
+            background-color: #45a049;
+        }
+
+        #missingCharsOutput {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px dashed #e65100;
+            border-radius: 5px;
+            background-color: #fff3e0;
+            word-break: break-all;
+        }
+
+        #exportImageButton {
+            background-color: #2196F3; /* 蓝色 */
+            margin-left: 10px;
+        }
+
+        #exportImageButton:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>拼好字</h1>
+        <p>在这里输入文字，下面会显示你的手写字迹。</p>
+        <textarea id="inputText" placeholder="请输入文字..." rows="5"></textarea>
+        <div id="outputArea" class="output-area"></div>
+        <div class="action-buttons">
+            <div id="stats" class="stats"></div>
+            <button id="exportButton">导出缺失字符</button>                <button id="exportImageButton">导出预览区图片</button>
+        </div>
+        <div id="missingCharsOutput"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputText = document.getElementById('inputText');
+            const outputArea = document.getElementById('outputArea');
+            const exportButton = document.getElementById('exportButton');
+            const missingCharsOutput = document.getElementById('missingCharsOutput');
+            const stats = document.getElementById('stats');
+
+            function renderText() {
+                const text = inputText.value.replace(/——/g, '¨');
+                outputArea.innerHTML = '';
+                const missingChars = new Set();
+                
+                if (text.length === 0) {
+                    stats.textContent = '';
+                    missingCharsOutput.textContent = '';
+                    return;
+                }
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    
+                    if (char === '\n') {
+                        const lineBreakSpacer = document.createElement('div');
+                        lineBreakSpacer.className = 'line-break-spacer';
+                        outputArea.appendChild(lineBreakSpacer);
+                        continue;
+                    }
+                    
+                    const img = document.createElement('img');                    
+                    // img.crossOrigin = 'anonymous'; // 新增：解决跨域图片污染问题
+
+                    img.title = char;
+
+                    if (char === ' ') {
+                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 透明 GIF
+                        img.alt = 'Space';
+                        img.style.width = '5px'; // 可以调整空格的宽度
+                        img.style.height = '35px'; // 与其他字保持相同高度
+                        img.style.border = 'none'; // 移除边框
+                        img.style.backgroundColor = 'transparent'; // 透明背景
+                        img.style.marginRight = '5px'; // 稍微右边距，模拟字间距
+                    } else if (char === '\t') {
+                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 透明 GIF
+                        img.alt = 'Space';
+                        img.style.width = '35px'; // 可以调整空格的宽度
+                        img.style.height = '35px'; // 与其他字保持相同高度
+                        img.style.border = 'none'; // 移除边框
+                        img.style.backgroundColor = 'transparent'; // 透明背景
+                        img.style.marginRight = '5px'; // 稍微右边距，模拟字间距
+                    } else if (char === '¨') {
+                        img.src = `handwriting_chars/_pozhe.png`
+                    } else if (char === '#') {
+                        img.src = `handwriting_chars/_hash.png`;
+                    } else if (char === '?') {
+                        img.src = `handwriting_chars/_quest.png`;
+                    } else if (char === '/') {
+                        img.src = `handwriting_chars/_slash.png`;
+                    } else if (char === ':') {
+                        img.src = `handwriting_chars/_colon.png`;
+                    } else if (char === '.') {
+                        img.src = `handwriting_chars/dot.png`;
+                    } else if (/[A-Z]/.test(char)) {
+                        img.src = `handwriting_chars/+c${char}.png`;
+                    } else {
+                        img.src = `handwriting_chars/${char}.png`;
+                        img.alt = `找不到字：${char}.png`; // 当图片加载失败时显示此文本
+                        img.title = char; // 鼠标悬停时显示字符
+                        img.onerror = function() {
+                            // 当图片加载失败时，用一个占位符来显示原始字符，帮助调试
+                            this.alt = `${char}`;
+                            this.style.width = '20px'; 
+                            this.style.height = '35px'; // 默认高度
+                            this.style.backgroundColor = '#ffe0b2'; // 浅橙色背景
+                            this.style.color = '#e65100'; // 深橙色文字
+                            // this.style.border = '1px dashedrgb(255, 239, 231)'; // 虚线边框
+                            this.style.textAlign = 'center';
+                            this.style.lineHeight = '35px'; // 垂直居中文字
+                            this.style.fontSize = '1.2em';
+                            this.className = 'missing-char'; // 添加一个类名用于样式
+                            this.src = ''; // 清除错误的src，防止浏览器继续尝试加载
+                        };
+                    }
+                    outputArea.appendChild(img);
+                }
+            }
+
+            inputText.addEventListener('input', renderText);
+            
+            exportButton.addEventListener('click', () => {
+                outputArea.scrollTop = outputArea.scrollHeight;
+
+                const missingCharsSet = new Set(Array.from(document.querySelectorAll('.missing-char')).map(el => el.title));
+                const missingList = Array.from(missingCharsSet).join('');
+                
+                if (missingList.length === 0) {
+                    missingCharsOutput.textContent = '当前没有缺失的字迹';
+                } else {
+                    missingCharsOutput.textContent = `缺失字迹: ${missingList}`;
+                }
+                stats.textContent = `总字符数: ${inputText.value.length}，缺失字迹: ${document.querySelectorAll('.missing-char').length}/${missingList.length}`;
+            });
+
+        // 新增：导出图片功能
+            exportImageButton.addEventListener('click', () => {
+                html2canvas(outputArea, {
+                    useCORS: true, // 如果图片来自不同源，需要设置此项
+                    allowTaint: true,
+                    scale: 2 // 可以增加分辨率
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'handwriting.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                });
+            });
+
+            
+            // Initial render
+            renderText();
+        });
+    </script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</body>
+</html>
