@@ -325,6 +325,16 @@
 <body>
     <div id="controls">
         <h2>拼好字设置</h2>
+        <!-- 预设选择下拉框 -->
+        <label style="margin-bottom:8px;">
+            选择预设:
+            <select id="presetSelect" style="margin-left:8px;flex:1;">
+                <option value="kokuyo-line-front">单栏正面</option>
+                <option value="kokuyo-line-back">单栏反面</option>
+                <option value="kokuyo-line-front-2-columns">双栏正面</option>
+                <option value="kokuyo-line-back-2-columns">双栏反面</option>
+            </select>
+        </label>
         <textarea id="textInput" rows="5" placeholder="输入要拼的文字"></textarea>
         <!-- 手风琴区域开始 -->
         <div class="accordion">
@@ -454,7 +464,7 @@
 
         // 判断是否为标点符号
         function isPunctuation(char) {
-            return /[，。！？…—、；："'‘’“”]/.test(char);
+            return /[，。！？\?\.…—、；："'‘’“”《》（）\(\)【】\*\[\]]/.test(char);
         }
 
         document.getElementById('lineHeight').onchange = function () {
@@ -478,6 +488,14 @@
         document.getElementById('showLines').onchange = function () {
             config.showLines = this.checked;
         };
+        document.getElementById('presetSelect').addEventListener('change', function() {
+            // 切换预设
+            let val = this.value;
+            if (config_dict[val]) {
+                config = config_dict[val];
+                startDrawing();
+            }
+        });
 
         function waitImageLoad(img) {
             return new Promise((resolve) => {
@@ -495,22 +513,12 @@
         async function draw(text_, pageConfig) {
             page_count++;
 
-            nextPageConfig = pageConfig;
-            if (switchPage) {
-                if (pageConfig.name == "kokuyo_line_back") {
-                    nextPageConfig = kokuyo_line_front;
-                } else {
-                    nextPageConfig = kokuyo_line_back;
-                }
-            }
+            nextPageConfig = config_dict[pageConfig.nextPage] || pageConfig;
 
-            console.log(`绘制 ${text_}`);
-            text = text_.replace(/——/g, '¨');
+            const column = pageConfig.columns || 1;
+            const textFrames = pageConfig.textFrame; // 数组，每列一个
             const lineHeight = pageConfig.lineHeight;
             const fontSize = pageConfig.fontSize;
-            const topMargin = pageConfig.textFrame[0];
-            const leftMargin = pageConfig.textFrame[1];
-            const rightMargin = pageConfig.textFrame[2];
             const smartPunctuation = pageConfig.smartPunctuation;
             const showLines = pageConfig.showLines;
             const lineCount = pageConfig.lineCount;
@@ -518,6 +526,7 @@
             const lineLeft = pageConfig.lineFrame[1];
             const lineRight = pageConfig.lineFrame[2];
             const background = pageConfig.background;
+            console.log(`开始绘制第 ${page_count} 页，配置:`, pageConfig);
 
             let canvas = document.createElement('canvas');
             let ctx = canvas.getContext('2d');
@@ -546,53 +555,89 @@
                 ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
             }
 
-            let x = leftMargin * 2;
-            let y = topMargin * 2;
-            const maxX = rightMargin * 2; // 右边界
-
-            let textBak = text_; // 新增：备份字符串
-
+            // 多列布局参数
+            let textBak = text_;
             // 支持多平台换行
             const lines = textBak.split(/\r?\n/);
-            let currCnt = 0;
             let wordCount = 0;
+            let lineIdxInText = 0; // 当前处理到的原始文本行号
 
-            for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-                let line = lines[lineIdx];
-                let thisLineLeftMargin = leftMargin;
-                x = thisLineLeftMargin * 2;
+            let currentColumn = 0;
+            let currentLineInColumn = 0;
+            let totalLinesThisPage = 0;
 
-                // 解析本行所有 margin 标记及其位置
+            // 计算每列的起始y
+            let columnY0 = [];
+            for (let c = 0; c < column; c++) {
+                columnY0[c] = textFrames[c][0] * 2;
+            }
+
+            // 记录每列当前y
+            let columnY = columnY0.slice();
+
+            // 记录每列当前x
+            let columnX = [];
+            for (let c = 0; c < column; c++) {
+                columnX[c] = textFrames[c][1] * 2;
+            }
+
+            // 记录每列右边界
+            let columnMaxX = [];
+            for (let c = 0; c < column; c++) {
+                columnMaxX[c] = textFrames[c][2] * 2;
+            }
+
+            // 记录每列当前行数
+            let columnLineCount = new Array(column).fill(0);
+
+            // 处理每一行文本
+            while (lineIdxInText < lines.length) {
+                // 当前列已满，切到下一个
+                // if (columnLineCount[currentColumn] >= lineCount) {
+                //     currentColumn++;
+                //     if (currentColumn >= column) {
+                //         // 所有列都满，换页
+                //         drawLines();
+                //         draw(textBak, nextPageConfig);
+                //         return;
+                //     }
+                // }
+
+                // 当前列参数
+                let thisLineLeftMargin = textFrames[currentColumn][1];
+                let thisLineRightMargin = textFrames[currentColumn][2];
+                let thisLineTopMargin = textFrames[currentColumn][0];
+
+                let x = thisLineLeftMargin * 2;
+                let y = columnY[currentColumn];
+
+                let line = lines[lineIdxInText];
+
+                // margin 标记处理（与原逻辑一致）
                 let marginSwitches = [];
-                let regex = /<\[([+-]?\d+)\]>/g; // 支持正负数
+                let regex = /<\[([+-]?\d+)\]>/g;
                 let match;
                 let pureLine = "";
                 let lastIdx = 0;
-                // 生成纯文本和 margin 切换点
                 while ((match = regex.exec(line)) !== null) {
                     pureLine += line.slice(lastIdx, match.index);
-                    // 记录为“相对改动量”
                     marginSwitches.push({ idx: pureLine.length, delta: parseInt(match[1]), rawIdx: match.index });
                     lastIdx = match.index + match[0].length;
                 }
                 pureLine += line.slice(lastIdx);
 
-                // 处理一行中的每个字符
                 let switchIdx = 0;
-                let rawIdx = 0; // 指向line的原始下标
+                let rawIdx = 0;
                 for (let i = 0; i < pureLine.length; i++) {
                     // 检查是否需要切换 margin
                     if (switchIdx < marginSwitches.length && i === marginSwitches[switchIdx].idx) {
-                        thisLineLeftMargin = leftMargin + marginSwitches[switchIdx].delta;
+                        thisLineLeftMargin = textFrames[currentColumn][1] + marginSwitches[switchIdx].delta;
                         x = thisLineLeftMargin * 2;
-                        // 跳过标记本身
                         let markLen = `<[${marginSwitches[switchIdx].delta}]>`.length;
                         textBak = textBak.slice(markLen);
                         rawIdx += markLen;
                         switchIdx++;
                     }
-
-                    // 跳过所有不是当前字符的标记（如连续标记）
                     while (
                         switchIdx < marginSwitches.length &&
                         rawIdx === marginSwitches[switchIdx].rawIdx
@@ -600,7 +645,7 @@
                         let markLen = `<[${marginSwitches[switchIdx].delta}]>`.length;
                         textBak = textBak.slice(markLen);
                         rawIdx += markLen;
-                        thisLineLeftMargin = leftMargin + marginSwitches[switchIdx].delta;
+                        thisLineLeftMargin = textFrames[currentColumn][1] + marginSwitches[switchIdx].delta;
                         x = thisLineLeftMargin * 2;
                         switchIdx++;
                     }
@@ -608,7 +653,6 @@
                     wordCount++;
                     const char = pureLine[i];
 
-                    // 跳过空格和制表符时也要同步 textBak 和 rawIdx
                     if (char === ' ') {
                         x += 10 * 2;
                         textBak = textBak.slice(1);
@@ -627,22 +671,33 @@
 
                     // 计算字符尺寸
                     const scale = img.height ? (fontSize * 2) / img.height : 1;
-                    const charWidth = img.width ? img.width * scale : 35; // 35px占位符
+                    const charWidth = img.width ? img.width * scale : 35;
                     const charHeight = fontSize * 2;
 
                     // 换行处理
-                    if (x + charWidth > maxX) {
+                    if (x + charWidth > columnMaxX[currentColumn]) {
                         if (smartPunctuation && isPunctuation(char)) {
                             // do nothing, just skip this char
                         } else {
                             x = thisLineLeftMargin * 2;
                             y += lineHeight * 2;
-                            currCnt++;
-                            line_count++;
-                            if (currCnt > lineCount) {
-                                drawLines();
-                                draw(textBak, nextPageConfig);
-                                return;
+                            columnY[currentColumn] = y;
+                            columnLineCount[currentColumn]++;
+                            totalLinesThisPage++;
+                            if (columnLineCount[currentColumn] > lineCount) {
+                                console.log(`688 - 列 ${currentColumn} 满，切换列 ${columnLineCount[currentColumn]}`);
+                                currentColumn++;
+                                if (currentColumn >= column) {
+                                    drawLines();
+                                    draw(textBak, nextPageConfig);
+                                    return;
+                                }
+                                // 切换到新列
+                                x = textFrames[currentColumn][1] * 2;
+                                y = columnY0[currentColumn];
+                                thisLineLeftMargin = textFrames[currentColumn][1];
+                                thisLineRightMargin = textFrames[currentColumn][2];
+                                thisLineTopMargin = textFrames[currentColumn][0];
                             }
                         }
                     }
@@ -652,7 +707,6 @@
                         ctx.drawImage(img, x, y, charWidth, charHeight);
                     }
 
-                    // 更新x位置
                     x += charWidth;
 
                     // 中英文间隔处理
@@ -661,7 +715,7 @@
                         if (!isPunctuation(nextChar)) {
                             if ((isChinese(char) && isWestern(nextChar)) ||
                                 (isWestern(char) && isChinese(nextChar))) {
-                                x += 5 * 2; // 10px间隔
+                                x += 5 * 2;
                             }
                         }
                     }
@@ -673,18 +727,25 @@
 
                 // 一行结束，换行
                 y += lineHeight * 2;
-                currCnt++;
-                wordCount++;
-                line_count++;
+                columnY[currentColumn] = y;
+                columnLineCount[currentColumn]++;
+                totalLinesThisPage++;
 
                 // 行尾同步删掉换行符
                 if (textBak[0] === '\r') textBak = textBak.slice(1);
                 if (textBak[0] === '\n') textBak = textBak.slice(1);
 
-                if (currCnt > lineCount) {
-                    drawLines();
-                    draw(textBak, nextPageConfig);
-                    return;
+                lineIdxInText++;
+
+                // 换页判断：渲染完一行后再判断
+                if (columnLineCount[currentColumn] > lineCount) {
+                    console.log(`742 - 列 ${currentColumn} 满，切换列 ${columnLineCount[currentColumn]}`);
+                    currentColumn++;
+                    if (currentColumn >= column) {
+                        drawLines();
+                        draw(textBak, nextPageConfig);
+                        return;
+                    }
                 }
             }
 
@@ -702,7 +763,7 @@
                     }
                     // 绘制额外的线条
                     for (let [width, color, left, top, right, bottom] of pageConfig.additional) {
-                        console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
+                        // console.log(`绘制额外线条: ${color} (${left}, ${top}) - (${right}, ${bottom})`);
                         ctx.strokeStyle = color;
                         ctx.lineWidth = width;
                         ctx.beginPath();
