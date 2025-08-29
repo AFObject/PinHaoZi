@@ -9,3 +9,6 @@ output
 raw
 cropjb1
 *.zip
+node_modules
+useless
+.DS_Store

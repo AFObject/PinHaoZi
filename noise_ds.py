@@ -108,10 +108,10 @@ def main():
     #     contrast_factor=args.contrast
     # )
     batch_denoise(
-        input_dir='/Users/apple/Downloads/cropped_images (2)/output',
-        output_dir='/Users/apple/Downloads/cropped_images (2)/output_d',
-        threshold=255,
-        contrast_factor=1.2
+        input_dir='handwriting_chars',
+        output_dir='output_chars_ds',
+        threshold=180,
+        contrast_factor=0.9
     )
 
 if __name__ == "__main__":
