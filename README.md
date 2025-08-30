@@ -14,4 +14,4 @@
 
 - *`pin_old.html`：（已弃用）旧版，无复杂功能。*
 - `configs.js`：修改预设。
-- `pin.html`：新版，高级！
+- `index.html`：新版，高级！
