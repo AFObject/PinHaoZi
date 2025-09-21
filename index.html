@@ -467,6 +467,9 @@
                 <option value="kokuyo-line-back">单栏反面（正反交替）</option>
                 <option value="kokuyo-line-front-2-columns">双栏正面（正反交替）</option>
                 <option value="kokuyo-line-back-2-columns">双栏反面（正反交替）</option>
+                <option value="yimo-front">一模反面（正反交替）</option>
+                <option value="yimo-back">一模反面（正反交替）</option>
+                <option value="english-guided-writing-shs">英语作文（上中模版）</option>
             </select>
         </div>
         <textarea id="textInput" rows="5" placeholder="输入文字。用 <[N]> 格式设置额外的 margin（相对于预设左 margin 的数值）。"></textarea>
@@ -702,7 +705,7 @@
             }
 
             // 多列布局参数
-            let textBak = text_;
+            let textBak = text_.replaceAll(/——/g, '¨');
             // 支持多平台换行
             const lines = textBak.split(/\r?\n/);
             let wordCount = 0;
@@ -800,7 +803,7 @@
                     const char = pureLine[i];
 
                     if (char === ' ') {
-                        x += 10 * 2;
+                        x += fontSize / 3.5 * 2;
                         textBak = textBak.slice(1);
                         rawIdx += 1;
                         continue;

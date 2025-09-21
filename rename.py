@@ -80,10 +80,10 @@ def process_and_copy_images(folder_path, names_text):
     print("\n任务完成！")
     
 # 将 'your_text_here' 替换为您提供的中文字符串
-text_to_use = """谈假熙凤妻惨秦卿铁涉退害刘姥妇偶厚余盛春宫德恩嫁扇晴雯丫鬟烈雀裘艺哲泽革辞苏威荷顾参黑织献茂誉章伸范轴临激障算释聪双陈哥猜芬域渥徐霞散贬诸报抒励酿透缝屋溃捧腰斩丝毫拨载叙播葆唤忆睐悖嗅踵荡陪健爆赤痕售饥饿噱拿捏盘吹驯版靡球熊摹轨饰牟诱饵启阱懂洪裹挟卖编险毁灭监措施阔遏衔逆僧陵挨戏诬钏震抚城愁访闭羹误逢饯婉赛咏姨妈谙闺细锁滴翠亭附嫌狠辣瘁卓寺请娶村座""".replace(" ", "").replace("\n", "")
+text_to_use = """滂楼童雪崇朝曹南彬帽餐厅惜侧厉零雄君砯崖壑雷蜀齐焉彩划辩喻晓笨拙拟畅串歌添韵旅酒呼班盐惋怅登辽眺颔残凄尾鹤箭云泊拜臣叨秽奸岂札哉郭蕃纠呢吗劣违罢嫉憎拒李颂般腐朽唐虞汉魏兵草菅武窃羽""".replace(" ", "").replace("\n", "")
 
 # 获取当前脚本所在的文件夹路径
-current_folder = '/Users/apple/Downloads/cropped_images (4)'
+current_folder = '/Users/apple/Downloads/cropped_images (2)'
 
 process_and_copy_images(current_folder, text_to_use)
 print("任务完成！")

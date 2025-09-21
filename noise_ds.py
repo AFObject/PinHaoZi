@@ -108,7 +108,7 @@ def main():
     #     contrast_factor=args.contrast
     # )
     batch_denoise(
-        input_dir='handwriting_chars',
+        input_dir='output_chars',
         output_dir='output_chars_ds',
         threshold=180,
         contrast_factor=0.9
