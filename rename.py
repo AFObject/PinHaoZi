@@ -56,7 +56,7 @@ def process_and_copy_images(folder_path, names_text):
             print(f"检测到空白图片，跳过处理: {image_name}")
     
     print("\n筛选完成。")
-    print(f"总共找到 {len(images_to_copy)} 张非空白图片需要处理。")
+    print(f"非空白图片数：{len(images_to_copy)}，等待处理文字数：{len(text_to_use)}。")
     t = input()
 
     # 第二步：复制并重命名到 output 文件夹
@@ -80,10 +80,10 @@ def process_and_copy_images(folder_path, names_text):
     print("\n任务完成！")
     
 # 将 'your_text_here' 替换为您提供的中文字符串
-text_to_use = """票技术停罔幕电移废凭慨衡谢队油墨汽阻噎尖碰粗糙刷屏握贵聚峻寄滤镜罪舆悄键蕴滞耐网诛伐矫揉稽扼杀软录溯悼筹码携阵""".replace(" ", "").replace("\n", "")
+text_to_use = """宇宙汪霍鸟铺掖阿窗郊吴旷枯钟寂澎湃撼迥渺惆弟踪孟兼傲骄兽厌滩瘦挺挂枝垂峦灰掠凝片缓淌块絮击详沧桑错涨浮漾萦绕挥邮咸鸭蛋炽汗芒瓜冰棒叫矩娱桥乘艇谒儒讥县霸欺凌劝逊慎宅""".replace(" ", "").replace("\n", "")
 
 # 获取当前脚本所在的文件夹路径
-current_folder = '/Users/apple/Downloads/cropped_images (3)'
+current_folder = '/Users/apple/Downloads/cropped_images'
 
 process_and_copy_images(current_folder, text_to_use)
 print("任务完成！")

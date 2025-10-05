@@ -23,7 +23,7 @@ plt.rcParams['axes.unicode_minus'] = False
 LOG_DIR = 'logs'
 
 # 定义一个可以被外部调用的核心分割函数
-def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min_char_width=18, max_char_width=50):
+def get_vertical_split_positions(img_data, top_y, bottom_y, left_x, right_x, min_char_width=30, max_char_width=80):
     """
     基于投影零点和局部最小值在给定区域内进行字符分割。
 
@@ -265,6 +265,7 @@ def segment_image():
         left_x = data['left_x']
         right_x = data['right_x']
         
+        # 全能扫描王：(30, 80)
         min_char_width = data.get('min_char_width', 30)
         max_char_width = data.get('max_char_width', 80)
         
